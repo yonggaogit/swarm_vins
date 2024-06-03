@@ -1,0 +1,25 @@
+<launch>
+    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="baud_rate" value="921600" />
+        <param name="self_id" value="1" />
+    </node>
+
+    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="baud_rate" value="921600" />
+        <param name="self_id" value="2" />
+    </node>
+
+    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="baud_rate" value="921600" />
+        <param name="self_id" value="3" />
+    </node>
+
+    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="baud_rate" value="921600" />
+        <param name="self_id" value="4" />
+    </node>
+</launch>
