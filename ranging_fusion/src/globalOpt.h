@@ -27,7 +27,7 @@ public:
 	void inputDis(double t, double dis);
 
 
-	void getGlobalOdom(Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ);
+	void getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ);
     void updateVIOPoseMap(const nav_msgs::Path &vio_path_msg);
 	nav_msgs::Path global_path;
 
@@ -44,5 +44,6 @@ private:
 	std::mutex mPoseMap;
 	Eigen::Vector3d lastP;
 	Eigen::Quaterniond lastQ;
+	double lastT;
 	std::thread threadOpt;
 };

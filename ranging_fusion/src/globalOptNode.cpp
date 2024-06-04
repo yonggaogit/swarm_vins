@@ -35,7 +35,7 @@ void vio_path_callback(const nav_msgs::Path &vio_path_msg)
         globalEstimator.updateVIOPoseMap(vio_path_msg);
 }
 
-void imuCallback(const sensor_msgs::Imu::ConstPtr &imu_msg)
+void imu_callback(const sensor_msgs::Imu::ConstPtr &imu_msg)
 {
     m_buf.lock();
     imu_buffer.push_back(*imu_msg);
@@ -121,7 +121,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     odom_distane_queue.push(tmpPair);
     m_buf.unlock();
 
-    pub_global_path.publish(*global_path);
+    processData();
 }
 
 void processData() {
@@ -185,14 +185,31 @@ void processData() {
 
     }
     m_buf.unlock();
+
+    Eigen::Vector3d global_p;
+    Eigen:: Quaterniond global_q;
+    double global_t;
+    globalEstimator.getGlobalOdom(global_t, global_p, global_q);
+
+    nav_msgs::Odometry odometry;
+    odometry.header.stamp = ros::Time(global_t);
+    odometry.header.frame_id = "world";
+    odometry.child_frame_id = "world";
+    odometry.pose.pose.position.x = global_p.x();
+    odometry.pose.pose.position.y = global_p.y();
+    odometry.pose.pose.position.z = global_p.z();
+    odometry.pose.pose.orientation.x = global_q.x();
+    odometry.pose.pose.orientation.y = global_q.y();
+    odometry.pose.pose.orientation.z = global_q.z();
+    odometry.pose.pose.orientation.w = global_q.w();
+    pub_global_odometry.publish(odometry);
+    pub_global_path.publish(*global_path);
 }
 
 void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone_id) {
     m_buf.lock();
     other_odom_queue.push(make_pair(drone_id, *msg));
     m_buf.unlock();
-
-    processData();
 }
 
 
@@ -204,18 +221,31 @@ int main(int argc, char **argv)
     readParameters(n);
 
     global_path = &globalEstimator.global_path;
-    ros::Subscriber sub_vio_path = n.subscribe("/pose_graph/path_1",1000, vio_path_callback);
-    
-    ros::Subscriber drone_1_odom_sub = n.subscribe<nav_msgs::Odometry>("/drone_1/vins_estimator/odometry", 1000, 
-        boost::bind(otherOdomCallback, _1, 1 ));
-    ros::Subscriber drone_2_odom_sub = n.subscribe<nav_msgs::Odometry>("/drone_2/vins_estimator/odometry", 1000, 
-        boost::bind(otherOdomCallback, _1, 2 ));
-    ros::Subscriber drone_3_odom_sub = n.subscribe<nav_msgs::Odometry>("/drone_3/vins_estimator/odometry", 1000, 
-        boost::bind(otherOdomCallback, _1, 3 ));
+    std::string pose_graph_path_topic, self_odom_topic, linktrack_nodeframe_topic, imu_topic;
+    n.param<std::string>("pose_graph_path_topic", pose_graph_path_topic, "/pose_graph/path_1");
+    n.param<std::string>("self_odom_topic", self_odom_topic, "/vins_fusion/imu_propagate");
+    n.param<std::string>("linktrack_nodeframe_topic", linktrack_nodeframe_topic, "/nlink_linktrack_nodeframe2");
+    n.param<std::string>("imu_topic", imu_topic, "/mavros/imu/data_raw");
+
+    ros::Subscriber sub_vio_path = n.subscribe(pose_graph_path_topic, 1000, vio_path_callback);
+    ros::Subscriber sub_imu = n.subscribe(imu_topic, 100, imu_callback);
+
+    int drone_id, num_drones;
+    n.param("drone_id", drone_id, 1);
+    n.param("num_drones", num_drones, 4);
+
+    for (int i = 1; i <= num_drones; ++i)
+    {
+        if (i != drone_id)
+        {
+            std::string topic_name = "/drone_" + std::to_string(i) + self_odom_topic;
+            ros::Subscriber sub = n.subscribe<nav_msgs::Odometry>(topic_name, 1000, boost::bind(otherOdomCallback, _1, i));
+        }
+    }
 
     
-    message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, "/vins_estimator/odometry", 1);
-    message_filters::Subscriber<nlink_parser::LinktrackNodeframe2> distance_sub(n, "/nlink_linktrack_nodeframe2", 1);
+    message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, self_odom_topic, 1);
+    message_filters::Subscriber<nlink_parser::LinktrackNodeframe2> distance_sub(n, linktrack_nodeframe_topic, 1);
 
     typedef message_filters::sync_policies::ApproximateTime<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), self_odom_sub, distance_sub);

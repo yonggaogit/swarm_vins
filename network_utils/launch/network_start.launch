@@ -1,42 +1,44 @@
-<!-- 文件路径: launch/start_drones.launch -->
+<!-- 文件路径: launch/start_drone.launch -->
 <launch>
-    <!-- 启动 drone1 -->
-    <node name="drone1_pose_pub_sub" pkg="network_utils" type="pose_pub_sub" output="screen">
-        <param name="drone_id" value="1" />
-        <param name="pub_endpoint" value="tcp://192.168.1.1:5555" />
-        <param name="sub_endpoints" value="tcp://192.168.1.2:5555,tcp://192.168.1.3:5555,tcp://192.168.1.4:5555" />
-        <param name="dy2" value="2" />
-        <param name="dy3" value="4" />
-        <param name="dy4" value="6" />
-    </node>
+    <!-- 参数定义 -->
+    <arg name="drone_id" default="1" />
+    <arg name="num_drones" default="4" />
+    <arg name="base_ip" default="192.168.1." />
+    <arg name="base_port" default="5555" />
+    <arg name="offset_multiplier" default="1.5" />
+    <arg name="odom_topic" default="/vins_fusion/imu_propagate" />
+    <arg name="vins_topic" default="/vins_fusion/imu_propagate" />
 
-    <!-- 启动 drone2 -->
-    <node name="drone2_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
-        <param name="drone_id" value="2" />
-        <param name="pub_endpoint" value="tcp://192.168.1.2:5555" />
-        <param name="sub_endpoints" value="tcp://192.168.1.1:5555,tcp://192.168.1.3:5555,tcp://192.168.1.4:5555" />
-        <param name="dy1" value="-2" />
-        <param name="dy3" value="2" />
-        <param name="dy4" value="4" />
-    </node>
+    <!-- 当前无人机的配置 -->
+    <param name="drone_id" value="$(arg drone_id)" />
+    <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)" />
+    <param name="odom_topic" value="$(arg odom_topic)" />
+    <param name="vins_topic" value="$(arg vins_topic)" />
 
-    <!-- 启动 drone3 -->
-    <node name="drone3_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
-        <param name="drone_id" value="3" />
-        <param name="pub_endpoint" value="tcp://192.168.1.3:5555" />
-        <param name="sub_endpoints" value="tcp://192.168.1.1:5555,tcp://192.168.1.2:5555,tcp://192.168.1.4:5555" />
-        <param name="dy1" value="-4" />
-        <param name="dy2" value="-2" />
-        <param name="dy4" value="2" />
-    </node>
+    <!-- 生成其他无人机的订阅端点 -->
+    <param name="sub_endpoints" value="
+        <for_each var='i' value='$(eval range(1, int(arg('num_drones'))+1))'>
+            <if unless='$(eval i == int(arg("drone_id")))'>
+                tcp://$(eval arg('base_ip') + str(i)):$(arg base_port),
+            </if>
+        </for_each>" />
 
-    <!-- 启动 drone4 -->
-    <node name="drone4_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
-        <param name="drone_id" value="4" />
-        <param name="pub_endpoint" value="tcp://192.168.1.4:5555" />
-        <param name="sub_endpoints" value="tcp://192.168.1.1:5555,tcp://192.168.1.2:5555,tcp://192.168.1.3:5555" />
-        <param name="dy1" value="-6" />
-        <param name="dy2" value="-4" />
-        <param name="dy3" value="-2" />
+    <!-- 生成偏移量参数 -->
+    <for_each var="i" value="$(eval range(1, int(arg('num_drones'))+1))">
+        <if unless='$(eval i == int(arg("drone_id")))'>
+            <param name="offsets/tcp://$(eval arg('base_ip') + str(i)):$(arg base_port)" value="[$(eval (i - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
+        </if>
+    </for_each>
+    
+    <!-- 启动 pose_pub_sub 节点 -->
+    <node name="drone$(arg drone_id)_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
+        <param name="drone_id" value="$(arg drone_id)" />
+        <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)" />
+        <param name="sub_endpoints" value="$(param sub_endpoints)" />
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="vins_topic" value="$(arg vins_topic)" />
+        <rosparam param="offsets" subst_value="true">
+            <param name="tcp://$(param sub_endpoints)" value="[$(eval int(arg('num_drones')) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
+        </rosparam>
     </node>
 </launch>

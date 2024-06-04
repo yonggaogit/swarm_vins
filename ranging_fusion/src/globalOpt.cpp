@@ -51,6 +51,7 @@ void GlobalOptimization::inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quate
     global_path.header = pose_stamped.header;
     global_path.poses.push_back(pose_stamped);
 
+    lastT = t;
     lastP = OdomP;
     lastQ = OdomQ;
     mPoseMap.unlock();
@@ -73,8 +74,9 @@ void GlobalOptimization::inputDis(double t, double dis)
 }
 
 
-void GlobalOptimization::getGlobalOdom(Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ)
+void GlobalOptimization::getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ)
 {
+    T = lastT;
     odomP = lastP;
     odomQ = lastQ;
 }
@@ -125,6 +127,8 @@ void GlobalOptimization::optimize()
             mPoseMap.lock();
             for (const auto& self_pose : selfPoseMap) {
                 globalPoseMap[self_pose.first] = self_pose.second;
+
+                //TODO: 修改lastP和lastQ 
             }
 
             updateGlobalPath();

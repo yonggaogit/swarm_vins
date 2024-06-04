@@ -12,10 +12,11 @@
 
 class PosePubSub {
 public:
-    PosePubSub(const std::string& drone_id, const std::string& pub_endpoint, const std::vector<std::string>& sub_endpoints)
-        : drone_id_(drone_id), context_(1), publisher_(context_, ZMQ_PUB), subscriber_(context_, ZMQ_SUB) {
+    PosePubSub(const std::string& drone_id, const std::string& pub_endpoint, const std::vector<std::string>& sub_endpoints,
+               const std::unordered_map<std::string, std::vector<double>>& offsets, const std::string& odom_topic, const std::string& vins_topic)
+        : drone_id_(drone_id), context_(1), publisher_(context_, ZMQ_PUB), subscriber_(context_, ZMQ_SUB), offsets_(offsets), vins_topic_(vins_topic) {
         ros::NodeHandle nh;
-        odom_sub_ = nh.subscribe("odom", 10, &PosePubSub::odomCallback, this);
+        odom_sub_ = nh.subscribe(odom_topic, 10, &PosePubSub::odomCallback, this);
 
         // 设置发布端点
         try {
@@ -57,13 +58,20 @@ public:
                     ROS_INFO("Received pose from %s at time %f: [%f, %f, %f, %f, %f, %f, %f]",
                              drone_id.c_str(), timestamp, px, py, pz, ox, oy, oz, ow);
 
+                    // 调整位姿数据
+                    if (drone_id != drone_id_ && offsets_.find(drone_id) != offsets_.end()) {
+                        std::vector<double> offset = offsets_.at(drone_id);
+                        px += offset[0];
+                        py += offset[1];
+                        pz += offset[2];
+                    }
+
                     // 动态生成话题名并发布消息
                     if (drone_id != drone_id_) {
-                        std::string topic_name = "/drone_" + drone_id + "/vins_estimator/odometry";
+                        std::string topic_name = "/drone_" + drone_id + vins_topic_;
                         nav_msgs::Odometry odom_msg;
                         odom_msg.header.stamp = ros::Time(timestamp);
-                        odom_msg.header.frame_id = "odom";
-                        odom_msg.child_frame_id = "base_link";
+                        odom_msg.header.frame_id = "world";
                         odom_msg.pose.pose.position.x = px;
                         odom_msg.pose.pose.position.y = py;
                         odom_msg.pose.pose.position.z = pz;
@@ -116,19 +124,24 @@ private:
     zmq::socket_t subscriber_;
     std::string drone_id_;
     std::unordered_map<std::string, ros::Publisher> pose_publishers_;
+    std::unordered_map<std::string, std::vector<double>> offsets_;
+    std::string vins_topic_;
 };
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "pose_pub_sub");
     ros::NodeHandle nh;
 
-    std::string drone_id, pub_endpoint, sub_endpoints_str;
+    std::string drone_id, pub_endpoint, sub_endpoints_str, odom_topic, vins_topic;
     std::vector<std::string> sub_endpoints;
+    std::unordered_map<std::string, std::vector<double>> offsets;
 
     if (!nh.getParam("drone_id", drone_id) ||
         !nh.getParam("pub_endpoint", pub_endpoint) ||
-        !nh.getParam("sub_endpoints", sub_endpoints_str)) {
-        ROS_ERROR("Missing parameters: drone_id, pub_endpoint, or sub_endpoints");
+        !nh.getParam("sub_endpoints", sub_endpoints_str) ||
+        !nh.getParam("odom_topic", odom_topic) ||
+        !nh.getParam("vins_topic", vins_topic)) {
+        ROS_ERROR("Missing parameters: drone_id, pub_endpoint, sub_endpoints, odom_topic, or vins_topic");
         return -1;
     }
 
@@ -138,8 +151,14 @@ int main(int argc, char** argv) {
         sub_endpoints.push_back(endpoint);
     }
 
+    for (const auto& sub_drone_id : sub_endpoints) {
+        std::vector<double> offset(3, 0.0);
+        nh.getParam("offsets/" + sub_drone_id, offset);
+        offsets[sub_drone_id] = offset;
+    }
+
     try {
-        PosePubSub pose_pub_sub(drone_id, pub_endpoint, sub_endpoints);
+        PosePubSub pose_pub_sub(drone_id, pub_endpoint, sub_endpoints, offsets, odom_topic, vins_topic);
         pose_pub_sub.start();
         ros::spin();
     } catch (const zmq::error_t& e) {

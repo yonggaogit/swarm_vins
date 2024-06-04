@@ -2,24 +2,12 @@
     <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
         <param name="port_name" value="/dev/ttyUSB0" />
         <param name="baud_rate" value="921600" />
-        <param name="self_id" value="1" />
-    </node>
+        <param name="drone_id" value="1" />
+        <param name="num_drones" value="4" />
 
-    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
-        <param name="port_name" value="/dev/ttyUSB0" />
-        <param name="baud_rate" value="921600" />
-        <param name="self_id" value="2" />
-    </node>
-
-    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
-        <param name="port_name" value="/dev/ttyUSB0" />
-        <param name="baud_rate" value="921600" />
-        <param name="self_id" value="3" />
-    </node>
-
-    <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
-        <param name="port_name" value="/dev/ttyUSB0" />
-        <param name="baud_rate" value="921600" />
-        <param name="self_id" value="4" />
+        <param name="pose_graph_path_topic" value="/pose_graph/path_1"/>
+        <param name="self_odom_topic" value="/vins_fusion/imu_propagate"/>
+        <param name="linktrack_nodeframe_topic" value="/nlink_linktrack_nodeframe2"/>
+        <param name="imu_topic" value="/mavros/imu/data_raw"/>
     </node>
 </launch>
