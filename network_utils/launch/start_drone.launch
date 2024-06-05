@@ -1,19 +1,19 @@
 <!-- 文件路径: launch/start_drone.launch -->
 <launch>
     <!-- 参数定义 -->
-    <arg name="drone_id" default="1" />
-    <arg name="num_drones" default="4" />
-    <arg name="base_ip" default="192.168.1." />
-    <arg name="base_port" default="5555" />
-    <arg name="offset_multiplier" default="1.5" />
-    <arg name="odom_topic" default="/vins_fusion/imu_propagate" />
-    <arg name="vins_topic" default="/vins_fusion/imu_propagate" />
+    <arg name="drone_id" default="1"/>
+    <arg name="num_drones" default="3"/>
+    <arg name="base_ip" default="192.168.1."/>
+    <arg name="base_port" default="5555"/>
+    <arg name="offset_multiplier" default="1.0"/>
+    <arg name="odom_topic" default="/drone_$(arg drone_id)/odom"/>
+    <arg name="vins_topic" default="/vins_estimator/odometry"/>
 
     <!-- 当前无人机的配置 -->
-    <param name="drone_id" value="$(arg drone_id)" />
-    <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)" />
-    <param name="odom_topic" value="$(arg odom_topic)" />
-    <param name="vins_topic" value="$(arg vins_topic)" />
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)"/>
+    <param name="odom_topic" value="$(arg odom_topic)"/>
+    <param name="vins_topic" value="$(arg vins_topic)"/>
 
     <!-- 生成其他无人机的订阅端点 -->
     <param name="sub_endpoints" value="
@@ -32,11 +32,11 @@
     
     <!-- 启动 pose_pub_sub 节点 -->
     <node name="drone$(arg drone_id)_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
-        <param name="drone_id" value="$(arg drone_id)" />
-        <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)" />
-        <param name="sub_endpoints" value="$(param sub_endpoints)" />
-        <param name="odom_topic" value="$(arg odom_topic)" />
-        <param name="vins_topic" value="$(arg vins_topic)" />
+        <param name="drone_id" value="$(arg drone_id)"/>
+        <param name="pub_endpoint" value="tcp://$(arg base_ip)$(arg drone_id):$(arg base_port)"/>
+        <param name="sub_endpoints" value="$(param sub_endpoints)"/>
+        <param name="odom_topic" value="$(arg odom_topic)"/>
+        <param name="vins_topic" value="$(arg vins_topic)"/>
         <rosparam param="offsets" subst_value="true">
             <param name="tcp://$(param sub_endpoints)" value="[$(eval int(arg('num_drones')) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
         </rosparam>
