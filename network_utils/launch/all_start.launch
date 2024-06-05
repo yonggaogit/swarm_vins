@@ -24,7 +24,7 @@
         <arg name="base_ip" value="$(arg base_ip)"/>
         <arg name="base_port" value="$(arg base_port)"/>
         <arg name="offset_multiplier" value="$(arg offset_multiplier)"/>
-        <arg name="odom_topic" value="/drone_1/odom"/>
+        <arg name="odom_topic" value="/vins_estimator/odometry"/>
         <arg name="vins_topic" value="/vins_estimator/odometry"/>
         <machine name="drone1"/>
     </include>
@@ -36,7 +36,7 @@
         <arg name="base_ip" value="$(arg base_ip)"/>
         <arg name="base_port" value="$(arg base_port)"/>
         <arg name="offset_multiplier" value="$(arg offset_multiplier)"/>
-        <arg name="odom_topic" value="/drone_2/odom"/>
+        <arg name="odom_topic" value="/vins_estimator/odometry"/>
         <arg name="vins_topic" value="/vins_estimator/odometry"/>
         <machine name="drone2"/>
     </include>
@@ -48,7 +48,7 @@
         <arg name="base_ip" value="$(arg base_ip)"/>
         <arg name="base_port" value="$(arg base_port)"/>
         <arg name="offset_multiplier" value="$(arg offset_multiplier)"/>
-        <arg name="odom_topic" value="/drone_3/odom"/>
+        <arg name="odom_topic" value="/vins_estimator/odometry"/>
         <arg name="vins_topic" value="/vins_estimator/odometry"/>
         <machine name="drone3"/>
     </include>
