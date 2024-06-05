@@ -123,14 +123,19 @@ void GlobalOptimization::optimize()
             ceres::Solve(options, &problem, &summary);
 
             std::cout << summary.FullReport() << std::endl;
+            auto lastElement = std::prev(selfPoseMap.end());
 
             mPoseMap.lock();
-            for (const auto& self_pose : selfPoseMap) {
-                globalPoseMap[self_pose.first] = self_pose.second;
-
-                //TODO: 修改lastP和lastQ 
+            for (auto it = selfPoseMap.begin(); it != selfPoseMap.end(); ++it) {
+                globalPoseMap[it->first] = it->second;
+                if (it == lastElement) {
+                    lastT = it->first;
+                    lastP = Eigen::Vector3d(it->second[0], it->second[1], it->second[2]);
+                    
+                    lastQ = Eigen::Quaterniond(it->second[3], it->second[4], 
+                                                                        it->second[5], it->second[6]).toRotationMatrix();
+                }
             }
-
             updateGlobalPath();
             mPoseMap.unlock();
         }

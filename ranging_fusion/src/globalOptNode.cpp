@@ -94,36 +94,6 @@ nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros
     return integrated_odom;
 }
 
-
-void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) {
-    if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
-    {
-        m_buf.lock();
-        nav_msgs::Odometry adjusted_odom = preIntegrateImu(*self_odom_msg, distance_msg->header.stamp);
-        m_buf.unlock();
-        odomDistanceCallback(boost::make_shared<nav_msgs::Odometry>(adjusted_odom), distance_msg);
-        return;
-    }
-
-    double x_dis = self_odom_msg->pose.pose.position.x - last_vio_pos[0];
-    double y_dis = self_odom_msg->pose.pose.position.y - last_vio_pos[1];
-    double z_dis = self_odom_msg->pose.pose.position.z - last_vio_pos[2];
-    double dis = sqrt(x_dis * x_dis + y_dis * y_dis + z_dis * z_dis);
-    if (dis < MOVE_DIS)
-        return;
-
-    last_vio_pos[0] = self_odom_msg->pose.pose.position.x;
-    last_vio_pos[1] = self_odom_msg->pose.pose.position.y;
-    last_vio_pos[2] = self_odom_msg->pose.pose.position.z;
-
-    m_buf.lock();
-    std::pair<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> tmpPair = std::make_pair(*self_odom_msg, *distance_msg);
-    odom_distane_queue.push(tmpPair);
-    m_buf.unlock();
-
-    processData();
-}
-
 void processData() {
     m_buf.lock();
     while (! odom_distane_queue.empty() && ! other_odom_queue.empty()) {
@@ -204,6 +174,36 @@ void processData() {
     odometry.pose.pose.orientation.w = global_q.w();
     pub_global_odometry.publish(odometry);
     pub_global_path.publish(*global_path);
+}
+
+
+void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) {
+    if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
+    {
+        m_buf.lock();
+        nav_msgs::Odometry adjusted_odom = preIntegrateImu(*self_odom_msg, distance_msg->header.stamp);
+        m_buf.unlock();
+        odomDistanceCallback(boost::make_shared<nav_msgs::Odometry>(adjusted_odom), distance_msg);
+        return;
+    }
+
+    double x_dis = self_odom_msg->pose.pose.position.x - last_vio_pos[0];
+    double y_dis = self_odom_msg->pose.pose.position.y - last_vio_pos[1];
+    double z_dis = self_odom_msg->pose.pose.position.z - last_vio_pos[2];
+    double dis = sqrt(x_dis * x_dis + y_dis * y_dis + z_dis * z_dis);
+    if (dis < MOVE_DIS)
+        return;
+
+    last_vio_pos[0] = self_odom_msg->pose.pose.position.x;
+    last_vio_pos[1] = self_odom_msg->pose.pose.position.y;
+    last_vio_pos[2] = self_odom_msg->pose.pose.position.z;
+
+    m_buf.lock();
+    std::pair<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> tmpPair = std::make_pair(*self_odom_msg, *distance_msg);
+    odom_distane_queue.push(tmpPair);
+    m_buf.unlock();
+
+    processData();
 }
 
 void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone_id) {

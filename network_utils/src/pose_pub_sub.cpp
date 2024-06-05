@@ -72,6 +72,7 @@ public:
                         nav_msgs::Odometry odom_msg;
                         odom_msg.header.stamp = ros::Time(timestamp);
                         odom_msg.header.frame_id = "world";
+                        odom_msg.child_frame_id = "world";
                         odom_msg.pose.pose.position.x = px;
                         odom_msg.pose.pose.position.y = py;
                         odom_msg.pose.pose.position.z = pz;
