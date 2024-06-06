@@ -14,7 +14,7 @@ OFFSET_MULTIPLIER=$9
 ODOM_TOPIC=${10}
 VINS_TOPIC=${11}
 
-roslaunch my_package start_drone.launch \
+roslaunch network_utils start_drone.launch \
     drone_id:=$DRONE_ID \
     num_drones:=$NUM_DRONES \
     drone1_ip:=$DRONE1_IP \

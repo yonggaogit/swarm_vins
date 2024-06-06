@@ -49,4 +49,7 @@ catkin_make
 - 通过`VINS-Fusion/vins_estimator/launch/fast_drone_250.launch`启动，主要需要修改的参数在`VINS-Fusion/config/fast_drone_250.yaml`中，包括相机和IMU的话题及机体系到相机系的位姿变换
 # 3 使用说明
 ```shell
+sudo chmod +x 
+echo "source ~/JKW_PROJECT/swarm_vins_ws/devel/setup.bash" >> ~/.bashrc
+source ~/.bashrc
 ```
