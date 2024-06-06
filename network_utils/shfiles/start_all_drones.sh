@@ -22,6 +22,6 @@ start_drone() {
 # 启动无人机
 start_drone 1 $DRONE1_IP
 start_drone 2 $DRONE2_IP
-start_drone 3 $DRONE3_IP
-start_drone 4 $DRONE4_IP
-start_drone 5 $DRONE5_IP
+# start_drone 3 $DRONE3_IP
+# start_drone 4 $DRONE4_IP
+# start_drone 5 $DRONE5_IP
