@@ -134,6 +134,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     std::string drone_id, pub_endpoint, sub_endpoints_str, odom_topic, vins_topic;
+    int num_drones;
     std::vector<std::string> sub_endpoints;
     std::unordered_map<std::string, std::vector<double>> offsets;
 
@@ -141,8 +142,9 @@ int main(int argc, char** argv) {
         !nh.getParam("pub_endpoint", pub_endpoint) ||
         !nh.getParam("sub_endpoints", sub_endpoints_str) ||
         !nh.getParam("odom_topic", odom_topic) ||
-        !nh.getParam("vins_topic", vins_topic)) {
-        ROS_ERROR("Missing parameters: drone_id, pub_endpoint, sub_endpoints, odom_topic, or vins_topic");
+        !nh.getParam("vins_topic", vins_topic) ||
+        !nh.getParam("num_drones", num_drones)) {
+        ROS_ERROR("Missing parameters: drone_id, num_drones, pub_endpoint, sub_endpoints, odom_topic, or vins_topic");
         return -1;
     }
 
