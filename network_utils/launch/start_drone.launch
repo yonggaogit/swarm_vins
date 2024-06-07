@@ -25,6 +25,12 @@
     <param name="odom_topic" value="$(arg odom_topic)"/>
     <param name="vins_topic" value="$(arg vins_topic)"/>
 
+    <!-- start uwb node -->
+    <node pkg="nlink_parser" type="linktrack" name="linktrack0" output="screen">
+        <param name="port_name" value="/dev/ttyUSB0" />
+        <param name="baud_rate" value="921600" />
+    </node>
+
     <!-- 启动 pose_pub_sub 节点 -->
     <node name="drone$(arg drone_id)_pose_pub_sub" pkg="network_utils" type="pose_pub_sub" output="screen">
         <param name="drone_id" value="$(arg drone_id)"/>
