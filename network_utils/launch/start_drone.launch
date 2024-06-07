@@ -20,32 +20,22 @@
 
     <!-- 生成其他无人机的订阅端点 -->
     <param name="sub_endpoints" value="
-        <if unless='$(eval int(arg("drone_id")) == 1)'>tcp://$(arg drone1_ip):$(arg base_port),</if>
-        <if unless='$(eval int(arg("drone_id")) == 2)'>tcp://$(arg drone2_ip):$(arg base_port),</if>
-        <if unless='$(eval int(arg("drone_id")) == 3)'>tcp://$(arg drone3_ip):$(arg base_port),</if>
-        <if unless='$(eval int(arg("drone_id")) == 4)'>tcp://$(arg drone4_ip):$(arg base_port),</if>
-        <if unless='$(eval int(arg("drone_id")) == 5)'>tcp://$(arg drone5_ip):$(arg base_port),</if>
-    " />
+        $(arg drone1_ip):$(arg base_port),
+        $(arg drone2_ip):$(arg base_port),
+        $(arg drone3_ip):$(arg base_port),
+        $(arg drone4_ip):$(arg base_port),
+        $(arg drone5_ip):$(arg base_port)
+    "/>
 
     <!-- 生成偏移量参数 -->
-    <if unless='$(eval int(arg("drone_id")) == 1)'>
-        <param name="offsets/tcp://$(arg drone1_ip):$(arg base_port)" value="[$(eval (1 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    </if>
-    <if unless='$(eval int(arg("drone_id")) == 2)'>
-        <param name="offsets/tcp://$(arg drone2_ip):$(arg base_port)" value="[$(eval (2 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    </if>
-    <if unless='$(eval int(arg("drone_id")) == 3)'>
-        <param name="offsets/tcp://$(arg drone3_ip):$(arg base_port)" value="[$(eval (3 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    </if>
-    <if unless='$(eval int(arg("drone_id")) == 4)'>
-        <param name="offsets/tcp://$(arg drone4_ip):$(arg base_port)" value="[$(eval (4 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    </if>
-    <if unless='$(eval int(arg("drone_id")) == 5)'>
-        <param name="offsets/tcp://$(arg drone5_ip):$(arg base_port)" value="[$(eval (5 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    </if>
+    <param name="offsets/tcp://$(arg drone1_ip):$(arg base_port)" value="[0.0, $(eval (1 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0]" />
+    <param name="offsets/tcp://$(arg drone2_ip):$(arg base_port)" value="[0.0, $(eval (2 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0]" />
+    <param name="offsets/tcp://$(arg drone3_ip):$(arg base_port)" value="[0.0, $(eval (3 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0]" />
+    <param name="offsets/tcp://$(arg drone4_ip):$(arg base_port)" value="[0.0, $(eval (4 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0]" />
+    <param name="offsets/tcp://$(arg drone5_ip):$(arg base_port)" value="[0.0, $(eval (5 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0]" />
     
     <!-- 启动 pose_pub_sub 节点 -->
-    <node name="drone$(arg drone_id)_pose_pub_sub" pkg="my_package" type="pose_pub_sub" output="screen">
+    <node name="drone$(arg drone_id)_pose_pub_sub" pkg="network_utils" type="pose_pub_sub" output="screen">
         <param name="drone_id" value="$(arg drone_id)"/>
         <param name="pub_endpoint" value="tcp://$(eval arg('drone' + arg('drone_id') + '_ip')):$(arg base_port)"/>
         <param name="sub_endpoints" value="$(param sub_endpoints)"/>

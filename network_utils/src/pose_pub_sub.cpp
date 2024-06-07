@@ -148,8 +148,14 @@ int main(int argc, char** argv) {
 
     std::istringstream iss(sub_endpoints_str);
     std::string endpoint;
-    while (std::getline(iss, endpoint, ',')) {
-        sub_endpoints.push_back(endpoint);
+    int current_id = std::stoi(drone_id);
+    int count = 0;
+
+    while (std::getline(iss, endpoint, ',') && count < num_drones) {
+        count++;
+        if (count != current_id) {
+            sub_endpoints.push_back(endpoint);
+        }
     }
 
     for (const auto& sub_drone_id : sub_endpoints) {

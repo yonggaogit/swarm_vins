@@ -39,19 +39,15 @@ if [ -n "$DRONE_IP" ]; then
     echo "Stopping ROS nodes on drone $DRONE_ID ($DRONE_IP)..."
     
     # SSH 连接到无人机，逐个关闭固定的节点
-    ssh -o StrictHostKeyChecking=no $USER@$DRONE_IP << EOF
+    sshpass -p $PASSWORD ssh -o StrictHostKeyChecking=no $USER@$DRONE_IP << EOF
     source /opt/ros/noetic/setup.bash
 
     # 逐个关闭固定的 ROS 节点
+    # 逐个关闭固定的 ROS 节点
     for NODE in "${NODE_NAMES[@]}"
     do
-        FULL_NODE_NAME="/drone${DRONE_ID}_\$NODE"
-        if rosnode list | grep -q \$FULL_NODE_NAME; then
-            echo "Killing node \$FULL_NODE_NAME..."
-            rosnode kill \$FULL_NODE_NAME
-        else
-            echo "Node \$FULL_NODE_NAME does not exist."
-        fi
+        echo "Killing node \$NODE..."
+        rosnode kill \$NODE
     done
 EOF
 
@@ -60,3 +56,4 @@ else
     echo "Invalid or missing IP for drone ID $DRONE_ID"
     exit 1
 fi
+
