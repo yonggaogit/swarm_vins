@@ -1,5 +1,3 @@
-// 文件路径: src/pose_pub_sub.cpp
-
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -9,6 +7,8 @@
 #include <vector>
 #include <chrono>
 #include <unordered_map>
+#include <string>
+#include <stdexcept>
 
 class PosePubSub {
 public:
@@ -133,38 +133,44 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "pose_pub_sub");
     ros::NodeHandle nh;
 
-    std::string drone_id, pub_endpoint, sub_endpoints_str, odom_topic, vins_topic;
-    int num_drones;
+    std::string drone_id, pub_endpoint, odom_topic, vins_topic;
+    std::string drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip;
+    int num_drones, base_port;
     std::vector<std::string> sub_endpoints;
     std::unordered_map<std::string, std::vector<double>> offsets;
 
     if (!nh.getParam("drone_id", drone_id) ||
-        !nh.getParam("pub_endpoint", pub_endpoint) ||
-        !nh.getParam("sub_endpoints", sub_endpoints_str) ||
+        !nh.getParam("num_drones", num_drones) ||
+        !nh.getParam("drone1_ip", drone1_ip) ||
+        !nh.getParam("drone2_ip", drone2_ip) ||
+        !nh.getParam("drone3_ip", drone3_ip) ||
+        !nh.getParam("drone4_ip", drone4_ip) ||
+        !nh.getParam("drone5_ip", drone5_ip) ||
+        !nh.getParam("base_port", base_port) ||
         !nh.getParam("odom_topic", odom_topic) ||
-        !nh.getParam("vins_topic", vins_topic) ||
-        !nh.getParam("num_drones", num_drones)) {
-        ROS_ERROR("Missing parameters: drone_id, num_drones, pub_endpoint, sub_endpoints, odom_topic, or vins_topic");
+        !nh.getParam("vins_topic", vins_topic)) {
+        ROS_ERROR("Missing parameters: drone_id, num_drones, droneX_ip, base_port, odom_topic, or vins_topic");
         return -1;
     }
 
-    std::istringstream iss(sub_endpoints_str);
-    std::string endpoint;
+    std::vector<std::string> drone_ips = {drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip};
     int current_id = std::stoi(drone_id);
-    int count = 0;
 
-    while (std::getline(iss, endpoint, ',') && count < num_drones) {
-        count++;
-        if (count != current_id) {
+    for (int i = 0; i < num_drones; ++i) {
+        if (i + 1 != current_id && !drone_ips[i].empty()) {
+            std::string endpoint = "tcp://" + drone_ips[i] + ":" + std::to_string(base_port);
             sub_endpoints.push_back(endpoint);
         }
     }
 
-    for (const auto& sub_drone_id : sub_endpoints) {
+    for (const auto& endpoint : sub_endpoints) {
         std::vector<double> offset(3, 0.0);
-        nh.getParam("offsets/" + sub_drone_id, offset);
-        offsets[sub_drone_id] = offset;
+        nh.getParam("offsets/" + endpoint, offset);
+        offsets[endpoint] = offset;
     }
+
+    // 将声明移动到前面，并在这里进行赋值
+    pub_endpoint = "tcp://" + drone_ips[current_id - 1] + ":" + std::to_string(base_port);
 
     try {
         PosePubSub pose_pub_sub(drone_id, pub_endpoint, sub_endpoints, offsets, odom_topic, vins_topic);
