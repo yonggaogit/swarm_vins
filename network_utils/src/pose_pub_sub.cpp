@@ -57,7 +57,7 @@ public:
 
                     ROS_INFO("Received pose from %s at time %f: [%f, %f, %f, %f, %f, %f, %f]",
                              drone_id.c_str(), timestamp, px, py, pz, ox, oy, oz, ow);
-
+                    std::cout << "origin posistion:" << px << ", " << py << ", " << pz << std::endl;
                     // 调整位姿数据
                     if (std::stoi(drone_id) != drone_id_ && offsets_.find(drone_id) != offsets_.end()) {
                         std::vector<double> offset = offsets_.at(drone_id);
@@ -65,7 +65,7 @@ public:
                         py += offset[1];
                         pz += offset[2];
                     }
-
+                    std::cout << "after adjust posistion:" << px << ", " << py << ", " << pz << std::endl;
                     // 动态生成话题名并发布消息
                     if (std::stoi(drone_id) != drone_id_) {
                         std::string topic_name = "/drone_" + drone_id + vins_topic_;
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
         if (i + 1 != drone_id && !drone_ips[i].empty()) {
             std::string endpoint = "tcp://" + drone_ips[i] + ":" + std::to_string(base_port);
             sub_endpoints.push_back(endpoint);
-            std::vector<double> offset = {(i + 1 - drone_id) * offset_multiplier, 0.0, 0.0};
+            std::vector<double> offset = {0.0, (i + 1 - drone_id) * offset_multiplier, 0.0};
             offsets[endpoint] = offset;
         }
     }

@@ -16,6 +16,7 @@ VINS_TOPIC="/vins_fusion/imu_propagate"
 
 start_drone() {
     DRONE_ID=$1
+    echo $DRONE_ID
     sshpass -p $PASSWORD ssh $USER@$2 "bash -c '/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/start_drone.sh $DRONE_ID $NUM_DRONES $DRONE1_IP $DRONE2_IP $DRONE3_IP $DRONE4_IP $DRONE5_IP $BASE_PORT $OFFSET_MULTIPLIER $ODOM_TOPIC $VINS_TOPIC'" &
 }
 
