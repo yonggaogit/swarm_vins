@@ -13,7 +13,7 @@
 class PosePubSub {
 public:
     PosePubSub(int drone_id, const std::string& pub_endpoint, const std::vector<std::string>& sub_endpoints,
-               const std::unordered_map<std::string, std::vector<double>>& offsets, const std::string& odom_topic, const std::string& vins_topic)
+               const std::unordered_map<int, std::vector<double>>& offsets, const std::string& odom_topic, const std::string& vins_topic)
         : drone_id_(drone_id), context_(1), publisher_(context_, ZMQ_PUB), subscriber_(context_, ZMQ_SUB), offsets_(offsets), vins_topic_(vins_topic) {
         ros::NodeHandle nh;
         odom_sub_ = nh.subscribe(odom_topic, 10, &PosePubSub::odomCallback, this);
@@ -57,10 +57,13 @@ public:
 
                     ROS_INFO("Received pose from %s at time %f: [%f, %f, %f, %f, %f, %f, %f]",
                              drone_id.c_str(), timestamp, px, py, pz, ox, oy, oz, ow);
+                    
+                    std::cout << "self_drone_id:" << drone_id_ << std::endl;
+                    std::cout << "target_drone_id:" << drone_id << std::endl;
                     std::cout << "origin posistion:" << px << ", " << py << ", " << pz << std::endl;
                     // 调整位姿数据
-                    if (std::stoi(drone_id) != drone_id_ && offsets_.find(drone_id) != offsets_.end()) {
-                        std::vector<double> offset = offsets_.at(drone_id);
+                    if (std::stoi(drone_id) != drone_id_ && offsets_.find(std::stoi(drone_id)) != offsets_.end()) {
+                        std::vector<double> offset = offsets_.at(std::stoi(drone_id));
                         px += offset[0];
                         py += offset[1];
                         pz += offset[2];
@@ -125,7 +128,7 @@ private:
     zmq::socket_t subscriber_;
     int drone_id_;
     std::unordered_map<std::string, ros::Publisher> pose_publishers_;
-    std::unordered_map<std::string, std::vector<double>> offsets_;
+    std::unordered_map<int, std::vector<double>> offsets_;
     std::string vins_topic_;
 };
 
@@ -138,7 +141,7 @@ int main(int argc, char** argv) {
     std::string pub_endpoint, odom_topic, vins_topic;
     std::string drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip;
     std::vector<std::string> sub_endpoints;
-    std::unordered_map<std::string, std::vector<double>> offsets;
+    std::unordered_map<int, std::vector<double>> offsets;
 
     // 检查并获取参数
     if (!nh.getParam("drone_id", drone_id)) {
@@ -208,7 +211,7 @@ int main(int argc, char** argv) {
             std::string endpoint = "tcp://" + drone_ips[i] + ":" + std::to_string(base_port);
             sub_endpoints.push_back(endpoint);
             std::vector<double> offset = {0.0, (i + 1 - drone_id) * offset_multiplier, 0.0};
-            offsets[endpoint] = offset;
+            offsets[i + 1] = offset;
         }
     }
 
