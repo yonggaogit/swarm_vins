@@ -136,6 +136,7 @@ int main(int argc, char** argv) {
     std::string drone_id, pub_endpoint, odom_topic, vins_topic;
     std::string drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip;
     int num_drones, base_port;
+    double offset_multiplier;
     std::vector<std::string> sub_endpoints;
     std::unordered_map<std::string, std::vector<double>> offsets;
 
@@ -148,8 +149,9 @@ int main(int argc, char** argv) {
         !nh.getParam("drone5_ip", drone5_ip) ||
         !nh.getParam("base_port", base_port) ||
         !nh.getParam("odom_topic", odom_topic) ||
-        !nh.getParam("vins_topic", vins_topic)) {
-        ROS_ERROR("Missing parameters: drone_id, num_drones, droneX_ip, base_port, odom_topic, or vins_topic");
+        !nh.getParam("vins_topic", vins_topic) ||
+        !nh.getParam("offset_multiplier", offset_multiplier)) {
+        ROS_ERROR("Missing parameters: drone_id, num_drones, droneX_ip, base_port, odom_topic, vins_topic, or offset_multiplier");
         return -1;
     }
 
@@ -160,13 +162,9 @@ int main(int argc, char** argv) {
         if (i + 1 != current_id && !drone_ips[i].empty()) {
             std::string endpoint = "tcp://" + drone_ips[i] + ":" + std::to_string(base_port);
             sub_endpoints.push_back(endpoint);
+            std::vector<double> offset = {0.0, (i + 1 - current_id) * offset_multiplier, 0.0};
+            offsets[endpoint] = offset;
         }
-    }
-
-    for (const auto& endpoint : sub_endpoints) {
-        std::vector<double> offset(3, 0.0);
-        nh.getParam("offsets/" + endpoint, offset);
-        offsets[endpoint] = offset;
     }
 
     // 将声明移动到前面，并在这里进行赋值

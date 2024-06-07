@@ -21,16 +21,10 @@
     <param name="drone4_ip" value="$(arg drone4_ip)"/>
     <param name="drone5_ip" value="$(arg drone5_ip)"/>
     <param name="base_port" value="$(arg base_port)"/>
+    <param name="offset_multiplier" value="$(arg offset_multiplier)"/>
     <param name="odom_topic" value="$(arg odom_topic)"/>
     <param name="vins_topic" value="$(arg vins_topic)"/>
 
-    <!-- 生成偏移量参数 -->
-    <param name="offsets/tcp://$(arg drone1_ip):$(arg base_port)" value="[$(eval (1 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    <param name="offsets/tcp://$(arg drone2_ip):$(arg base_port)" value="[$(eval (2 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    <param name="offsets/tcp://$(arg drone3_ip):$(arg base_port)" value="[$(eval (3 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    <param name="offsets/tcp://$(arg drone4_ip):$(arg base_port)" value="[$(eval (4 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    <param name="offsets/tcp://$(arg drone5_ip):$(arg base_port)" value="[$(eval (5 - int(arg('drone_id'))) * float(arg('offset_multiplier'))), 0.0, 0.0]" />
-    
     <!-- 启动 pose_pub_sub 节点 -->
     <node name="drone$(arg drone_id)_pose_pub_sub" pkg="network_utils" type="pose_pub_sub" output="screen">
         <param name="drone_id" value="$(arg drone_id)"/>
@@ -41,8 +35,8 @@
         <param name="drone4_ip" value="$(arg drone4_ip)"/>
         <param name="drone5_ip" value="$(arg drone5_ip)"/>
         <param name="base_port" value="$(arg base_port)"/>
+        <param name="offset_multiplier" value="$(arg offset_multiplier)"/>
         <param name="odom_topic" value="$(arg odom_topic)"/>
         <param name="vins_topic" value="$(arg vins_topic)"/>
-        <rosparam param="offsets" subst_value="true"/>
     </node>
 </launch>
