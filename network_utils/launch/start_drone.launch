@@ -27,7 +27,7 @@
 
     <!-- start uwb node -->
     <node pkg="nlink_parser" type="linktrack" name="linktrack0" output="screen">
-        <param name="port_name" value="/dev/ttyACM0" />
+        <param name="port_name" value="/dev/ttyACM1" />
         <param name="baud_rate" value="921600" />
     </node>
 
