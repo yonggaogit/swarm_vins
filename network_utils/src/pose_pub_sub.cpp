@@ -12,7 +12,7 @@
 
 class PosePubSub {
 public:
-    PosePubSub(const std::string& drone_id, const std::string& pub_endpoint, const std::vector<std::string>& sub_endpoints,
+    PosePubSub(int drone_id, const std::string& pub_endpoint, const std::vector<std::string>& sub_endpoints,
                const std::unordered_map<std::string, std::vector<double>>& offsets, const std::string& odom_topic, const std::string& vins_topic)
         : drone_id_(drone_id), context_(1), publisher_(context_, ZMQ_PUB), subscriber_(context_, ZMQ_SUB), offsets_(offsets), vins_topic_(vins_topic) {
         ros::NodeHandle nh;
@@ -59,7 +59,7 @@ public:
                              drone_id.c_str(), timestamp, px, py, pz, ox, oy, oz, ow);
 
                     // 调整位姿数据
-                    if (drone_id != drone_id_ && offsets_.find(drone_id) != offsets_.end()) {
+                    if (std::stoi(drone_id) != drone_id_ && offsets_.find(drone_id) != offsets_.end()) {
                         std::vector<double> offset = offsets_.at(drone_id);
                         px += offset[0];
                         py += offset[1];
@@ -67,7 +67,7 @@ public:
                     }
 
                     // 动态生成话题名并发布消息
-                    if (drone_id != drone_id_) {
+                    if (std::stoi(drone_id) != drone_id_) {
                         std::string topic_name = "/drone_" + drone_id + vins_topic_;
                         nav_msgs::Odometry odom_msg;
                         odom_msg.header.stamp = ros::Time(timestamp);
@@ -123,7 +123,7 @@ private:
     zmq::context_t context_;
     zmq::socket_t publisher_;
     zmq::socket_t subscriber_;
-    std::string drone_id_;
+    int drone_id_;
     std::unordered_map<std::string, ros::Publisher> pose_publishers_;
     std::unordered_map<std::string, std::vector<double>> offsets_;
     std::string vins_topic_;
@@ -133,42 +133,86 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "pose_pub_sub");
     ros::NodeHandle nh;
 
-    std::string drone_id, pub_endpoint, odom_topic, vins_topic;
-    std::string drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip;
-    int num_drones, base_port;
+    int drone_id, num_drones, base_port;
     double offset_multiplier;
+    std::string pub_endpoint, odom_topic, vins_topic;
+    std::string drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip;
     std::vector<std::string> sub_endpoints;
     std::unordered_map<std::string, std::vector<double>> offsets;
 
-    if (!nh.getParam("drone_id", drone_id) ||
-        !nh.getParam("num_drones", num_drones) ||
-        !nh.getParam("drone1_ip", drone1_ip) ||
-        !nh.getParam("drone2_ip", drone2_ip) ||
-        !nh.getParam("drone3_ip", drone3_ip) ||
-        !nh.getParam("drone4_ip", drone4_ip) ||
-        !nh.getParam("drone5_ip", drone5_ip) ||
-        !nh.getParam("base_port", base_port) ||
-        !nh.getParam("odom_topic", odom_topic) ||
-        !nh.getParam("vins_topic", vins_topic) ||
-        !nh.getParam("offset_multiplier", offset_multiplier)) {
-        ROS_ERROR("Missing parameters: drone_id, num_drones, droneX_ip, base_port, odom_topic, vins_topic, or offset_multiplier");
+    // 检查并获取参数
+    if (!nh.getParam("drone_id", drone_id)) {
+        ROS_ERROR("Missing parameter: drone_id");
+        return -1;
+    }
+    if (!nh.getParam("num_drones", num_drones)) {
+        ROS_ERROR("Missing parameter: num_drones");
+        return -1;
+    }
+    if (!nh.getParam("drone1_ip", drone1_ip)) {
+        ROS_ERROR("Missing parameter: drone1_ip");
+        return -1;
+    }
+    if (!nh.getParam("drone2_ip", drone2_ip)) {
+        ROS_ERROR("Missing parameter: drone2_ip");
+        return -1;
+    }
+    if (!nh.getParam("drone3_ip", drone3_ip)) {
+        ROS_ERROR("Missing parameter: drone3_ip");
+        return -1;
+    }
+    if (!nh.getParam("drone4_ip", drone4_ip)) {
+        ROS_ERROR("Missing parameter: drone4_ip");
+        return -1;
+    }
+    if (!nh.getParam("drone5_ip", drone5_ip)) {
+        ROS_ERROR("Missing parameter: drone5_ip");
+        return -1;
+    }
+    if (!nh.getParam("base_port", base_port)) {
+        ROS_ERROR("Missing parameter: base_port");
+        return -1;
+    }
+    if (!nh.getParam("odom_topic", odom_topic)) {
+        ROS_ERROR("Missing parameter: odom_topic");
+        return -1;
+    }
+    if (!nh.getParam("vins_topic", vins_topic)) {
+        ROS_ERROR("Missing parameter: vins_topic");
+        return -1;
+    }
+    if (!nh.getParam("offset_multiplier", offset_multiplier)) {
+        ROS_ERROR("Missing parameter: offset_multiplier");
         return -1;
     }
 
+    // 打印所有参数用于调试
+    ROS_INFO("Parameters:");
+    ROS_INFO("  drone_id: %d", drone_id);
+    ROS_INFO("  num_drones: %d", num_drones);
+    ROS_INFO("  drone1_ip: %s", drone1_ip.c_str());
+    ROS_INFO("  drone2_ip: %s", drone2_ip.c_str());
+    ROS_INFO("  drone3_ip: %s", drone3_ip.c_str());
+    ROS_INFO("  drone4_ip: %s", drone4_ip.c_str());
+    ROS_INFO("  drone5_ip: %s", drone5_ip.c_str());
+    ROS_INFO("  base_port: %d", base_port);
+    ROS_INFO("  odom_topic: %s", odom_topic.c_str());
+    ROS_INFO("  vins_topic: %s", vins_topic.c_str());
+    ROS_INFO("  offset_multiplier: %f", offset_multiplier);
+
+    // 处理IP地址和端点
     std::vector<std::string> drone_ips = {drone1_ip, drone2_ip, drone3_ip, drone4_ip, drone5_ip};
-    int current_id = std::stoi(drone_id);
 
     for (int i = 0; i < num_drones; ++i) {
-        if (i + 1 != current_id && !drone_ips[i].empty()) {
+        if (i + 1 != drone_id && !drone_ips[i].empty()) {
             std::string endpoint = "tcp://" + drone_ips[i] + ":" + std::to_string(base_port);
             sub_endpoints.push_back(endpoint);
-            std::vector<double> offset = {0.0, (i + 1 - current_id) * offset_multiplier, 0.0};
+            std::vector<double> offset = {(i + 1 - drone_id) * offset_multiplier, 0.0, 0.0};
             offsets[endpoint] = offset;
         }
     }
 
-    // 将声明移动到前面，并在这里进行赋值
-    pub_endpoint = "tcp://" + drone_ips[current_id - 1] + ":" + std::to_string(base_port);
+    pub_endpoint = "tcp://" + drone_ips[drone_id - 1] + ":" + std::to_string(base_port);
 
     try {
         PosePubSub pose_pub_sub(drone_id, pub_endpoint, sub_endpoints, offsets, odom_topic, vins_topic);
