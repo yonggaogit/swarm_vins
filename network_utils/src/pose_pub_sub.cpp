@@ -55,12 +55,11 @@ public:
                     double timestamp, px, py, pz, ox, oy, oz, ow;
                     iss >> drone_id >> timestamp >> px >> py >> pz >> ox >> oy >> oz >> ow;
 
+                    ros::Time ros_timestamp(timestamp);
+
                     ROS_INFO("Received pose from %s at time %f: [%f, %f, %f, %f, %f, %f, %f]",
-                             drone_id.c_str(), timestamp, px, py, pz, ox, oy, oz, ow);
+                            drone_id.c_str(), ros_timestamp.toSec(), px, py, pz, ox, oy, oz, ow);
                     
-                    std::cout << "self_drone_id:" << drone_id_ << std::endl;
-                    std::cout << "target_drone_id:" << drone_id << std::endl;
-                    std::cout << "origin posistion:" << px << ", " << py << ", " << pz << std::endl;
                     // 调整位姿数据
                     if (std::stoi(drone_id) != drone_id_ && offsets_.find(std::stoi(drone_id)) != offsets_.end()) {
                         std::vector<double> offset = offsets_.at(std::stoi(drone_id));
@@ -68,12 +67,12 @@ public:
                         py += offset[1];
                         pz += offset[2];
                     }
-                    std::cout << "after adjust posistion:" << px << ", " << py << ", " << pz << std::endl;
+
                     // 动态生成话题名并发布消息
                     if (std::stoi(drone_id) != drone_id_) {
                         std::string topic_name = "/drone_" + drone_id + vins_topic_;
                         nav_msgs::Odometry odom_msg;
-                        odom_msg.header.stamp = ros::Time(timestamp);
+                        odom_msg.header.stamp = ros_timestamp;
                         odom_msg.header.frame_id = "world";
                         odom_msg.child_frame_id = "world";
                         odom_msg.pose.pose.position.x = px;
@@ -98,11 +97,13 @@ public:
         }).detach();
     }
 
+
 private:
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+        double timestamp = msg->header.stamp.toSec();  // 使用 double 保存时间戳
         std::ostringstream oss;
         oss << drone_id_ << " "
-            << msg->header.stamp.toSec() << " "
+            << std::fixed << std::setprecision(9) << timestamp << " "  // 保证时间戳的精度
             << msg->pose.pose.position.x << " "
             << msg->pose.pose.position.y << " "
             << msg->pose.pose.position.z << " "

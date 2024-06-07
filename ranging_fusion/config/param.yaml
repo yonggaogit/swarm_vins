@@ -1,5 +1,5 @@
 %YAML:1.0
 use_loop_vins: 1
-time_tolerance: 0.01
+time_tolerance: 10
 move_dis: 0 #0.005
 imu_buffer_size: 600 #3秒

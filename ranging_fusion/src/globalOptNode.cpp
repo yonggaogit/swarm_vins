@@ -17,6 +17,7 @@
 #include "parameters.h"
 #include "nlink_parser/LinktrackNodeframe2.h"
 #include "nlink_parser/LinktrackNode2.h"
+#include <boost/bind.hpp>
 
 GlobalOptimization globalEstimator;
 ros::Publisher pub_global_odometry, pub_global_path;
@@ -37,6 +38,7 @@ void vio_path_callback(const nav_msgs::Path &vio_path_msg)
 
 void imu_callback(const sensor_msgs::Imu::ConstPtr &imu_msg)
 {
+    // std::cout << "=======================================imu callback=================================" << std::endl;
     m_buf.lock();
     imu_buffer.push_back(*imu_msg);
     while (imu_buffer.size() > IMU_BUFFER_SIZE)
@@ -95,14 +97,19 @@ nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros
 }
 
 void processData() {
+    std::cout << "===================================start process data============================" << std::endl;
     m_buf.lock();
     while (! odom_distane_queue.empty() && ! other_odom_queue.empty()) {
+        std::cout << "===================================into queue============================" << std::endl;
         auto& [odom_msg, distance_msg] = odom_distane_queue.front();
 
         double self_time = odom_msg.header.stamp.toNSec()/1e9;
 
         auto& [drone_id, other_odom_msg] = other_odom_queue.front();
         double other_time = other_odom_msg.header.stamp.toNSec()/1e9;
+        std::cout << std::scientific << std::setprecision(15);
+        std::cout << "self_time:" << self_time << std::endl;
+        std::cout << "other_time:" << other_time << std::endl;
         if( abs( self_time - other_time ) <= TIME_TOLERANCE )
         {
             double dis = -1.0;
@@ -136,6 +143,8 @@ void processData() {
                 double other_time = other_odom_msg.header.stamp.toNSec()/1e9;
                 double dis_time = distance_msg.header.stamp.toNSec()/1e9;
 
+                std::cout << "===================================same timestamp data============================" << std::endl;
+
                 globalEstimator.inputSelf(self_time, self_t, self_q);
                 globalEstimator.inputOther(other_time, other_t, other_q);
                 globalEstimator.inputDis(dis_time, dis);
@@ -160,7 +169,18 @@ void processData() {
     Eigen:: Quaterniond global_q;
     double global_t;
     globalEstimator.getGlobalOdom(global_t, global_p, global_q);
+    // 输出 Vector3d
+    std::cout << "global_p: " << global_p.transpose() << std::endl;
 
+    // 输出 Quaterniond
+    std::cout << "global_q: " 
+              << global_q.w() << " " 
+              << global_q.x() << " " 
+              << global_q.y() << " " 
+              << global_q.z() << std::endl;
+
+    // 输出 double
+    std::cout << "global_t: " << global_t << std::endl;
     nav_msgs::Odometry odometry;
     odometry.header.stamp = ros::Time(global_t);
     odometry.header.frame_id = "world";
@@ -177,7 +197,8 @@ void processData() {
 }
 
 
-void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) {
+void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) { 
+    std::cout << "===================================odom distance callback============================" << std::endl;   
     if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
     {
         m_buf.lock();
@@ -232,16 +253,12 @@ int main(int argc, char **argv)
 
     int drone_id, num_drones;
     n.param("drone_id", drone_id, 1);
-    n.param("num_drones", num_drones, 4);
-
-    for (int i = 1; i <= num_drones; ++i)
-    {
-        if (i != drone_id)
-        {
-            std::string topic_name = "/drone_" + std::to_string(i) + self_odom_topic;
-            ros::Subscriber sub = n.subscribe<nav_msgs::Odometry>(topic_name, 1000, boost::bind(otherOdomCallback, _1, i));
-        }
-    }
+    n.param("num_drones", num_drones, 2);
+    ros::Subscriber sub_other_odom_1 = n.subscribe<nav_msgs::Odometry>("/drone_1/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 1));
+    ros::Subscriber sub_other_odom_2 = n.subscribe<nav_msgs::Odometry>("/drone_2/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 2));
+    ros::Subscriber sub_other_odom_3 = n.subscribe<nav_msgs::Odometry>("/drone_3/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 3));
+    ros::Subscriber sub_other_odom_4 = n.subscribe<nav_msgs::Odometry>("/drone_4/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 4));
+    ros::Subscriber sub_other_odom_5 = n.subscribe<nav_msgs::Odometry>("/drone_5/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 5));
 
     
     message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, self_odom_topic, 1);

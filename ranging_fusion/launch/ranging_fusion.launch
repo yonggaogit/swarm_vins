@@ -1,9 +1,9 @@
 <launch>
     <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
-        <param name="port_name" value="/dev/ttyUSB0" />
-        <param name="baud_rate" value="921600" />
         <param name="drone_id" value="1" />
-        <param name="num_drones" value="4" />
+        <param name="num_drones" value="2" />
+
+        <param name="uwb_vio_config" value="/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml" />
 
         <param name="pose_graph_path_topic" value="/pose_graph/path_1"/>
         <param name="self_odom_topic" value="/vins_fusion/imu_propagate"/>
