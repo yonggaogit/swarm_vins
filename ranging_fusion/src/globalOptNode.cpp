@@ -18,9 +18,6 @@
 #include "nlink_parser/LinktrackNodeframe2.h"
 #include "nlink_parser/LinktrackNode2.h"
 #include <boost/bind.hpp>
-#include <boost/asio.hpp>
-
-using boost::asio::ip::tcp;
 
 GlobalOptimization* globalEstimator;
 ros::Publisher pub_global_odometry, pub_global_path;
@@ -33,16 +30,6 @@ std::deque<sensor_msgs::Imu> imu_buffer;
 
 double last_vio_pos[3] = {-9,-9,-9};
 
-std::string server_ip;
-int server_port;
-
-boost::asio::io_service io_service;
-tcp::socket socket(io_service);
-
-void sendToServer(const std::string& message) {
-    boost::asio::write(socket, boost::asio::buffer(message));
-}
-
 void vio_path_callback(const nav_msgs::Path &vio_path_msg)
 {
     if(USE_LOOP_VINS)
@@ -51,6 +38,7 @@ void vio_path_callback(const nav_msgs::Path &vio_path_msg)
 
 void imu_callback(const sensor_msgs::Imu::ConstPtr &imu_msg)
 {
+    // std::cout << "=======================================imu callback=================================" << std::endl;
     m_buf.lock();
     imu_buffer.push_back(*imu_msg);
     while (imu_buffer.size() > IMU_BUFFER_SIZE)
@@ -109,51 +97,63 @@ nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros
 }
 
 void processData() {
+    // std::cout << "===================================start process data============================" << std::endl;
     m_buf.lock();
-    while (!odom_distane_queue.empty() && !other_odom_queue.empty()) {
+    while (! odom_distane_queue.empty() && ! other_odom_queue.empty()) {
+        // std::cout << odom_distane_queue.size() << "," << other_odom_queue.size() << std::endl;
+        // std::cout << "===================================into queue============================" << std::endl;
         auto& [odom_msg, distance_msg] = odom_distane_queue.front();
 
-        double self_time = odom_msg.header.stamp.toNSec() / 1e9;
+        double self_time = odom_msg.header.stamp.toNSec()/1e9;
 
         auto& [drone_id, other_odom_msg] = other_odom_queue.front();
-        double other_time = other_odom_msg.header.stamp.toNSec() / 1e9;
-
-        if (fabs(self_time - other_time) <= TIME_TOLERANCE)
+        double other_time = other_odom_msg.header.stamp.toNSec()/1e9;
+        // std::cout << "drone_id: " << drone_id << std::endl;
+        // std::cout << std::scientific << std::setprecision(30);
+        // std::cout << "self_time:" << self_time << std::endl;
+        // std::cout << "other_time:" << other_time << std::endl;
+        // std::cout << "time_diff:" << fabs( self_time - other_time ) << std::endl;
+        if( fabs( self_time - other_time ) <= TIME_TOLERANCE )
         {
             double dis = -1.0;
-            for (auto node : distance_msg.nodes) {
-                if (node.id == drone_id - 1) {
+            for( auto node : distance_msg.nodes ) {
+                // std::cout << "node.id" << node.id << std::endl;
+                if( node.id == drone_id - 1 ) {
                     dis = node.dis;
                     break;
                 }
             }
-            if (dis >= 0) {
+            // std::cout << "dis:" << dis << std::endl;
+            if( dis >= 0 ) {
                 Eigen::Vector3d self_t(odom_msg.pose.pose.position.x,
-                                       odom_msg.pose.pose.position.y,
-                                       odom_msg.pose.pose.position.z);
+                                    odom_msg.pose.pose.position.y,
+                                    odom_msg.pose.pose.position.z);
                 Eigen::Quaterniond self_q;
                 self_q.w() = odom_msg.pose.pose.orientation.w;
                 self_q.x() = odom_msg.pose.pose.orientation.x;
                 self_q.y() = odom_msg.pose.pose.orientation.y;
                 self_q.z() = odom_msg.pose.pose.orientation.z;
 
+
                 Eigen::Vector3d other_t(other_odom_msg.pose.pose.position.x,
-                                        other_odom_msg.pose.pose.position.y,
-                                        other_odom_msg.pose.pose.position.z);
+                                    other_odom_msg.pose.pose.position.y,
+                                    other_odom_msg.pose.pose.position.z);
                 Eigen::Quaterniond other_q;
                 other_q.w() = other_odom_msg.pose.pose.orientation.w;
                 other_q.x() = other_odom_msg.pose.pose.orientation.x;
                 other_q.y() = other_odom_msg.pose.pose.orientation.y;
                 other_q.z() = other_odom_msg.pose.pose.orientation.z;
 
-                double self_time = odom_msg.header.stamp.toNSec() / 1e9;
-                double other_time = other_odom_msg.header.stamp.toNSec() / 1e9;
-                double dis_time = distance_msg.header.stamp.toNSec() / 1e9;
+                double self_time = odom_msg.header.stamp.toNSec()/1e9;
+                double other_time = other_odom_msg.header.stamp.toNSec()/1e9;
+                double dis_time = distance_msg.header.stamp.toNSec()/1e9;
+
+                // std::cout << "===================================same timestamp data============================" << std::endl;
 
                 globalEstimator->inputSelf(self_time, self_t, self_q);
                 globalEstimator->inputOther(other_time, other_t, other_q);
                 globalEstimator->inputDis(dis_time, dis);
-
+                
                 odom_distane_queue.pop();
                 other_odom_queue.pop();
 
@@ -161,19 +161,33 @@ void processData() {
             } else {
                 odom_distane_queue.pop();
             }
-        } else if (self_time < other_time) {
+        }
+        else if(self_time < other_time) {
             odom_distane_queue.pop();
-        } else {
+        }
+        else {
             other_odom_queue.pop();
         }
+
     }
     m_buf.unlock();
-
+    // std::cout << "=============================youhua============================" << std::endl;
     Eigen::Vector3d global_p;
-    Eigen::Quaterniond global_q;
+    Eigen:: Quaterniond global_q;
     double global_t;
     globalEstimator->getGlobalOdom(global_t, global_p, global_q);
+    // // 输出 Vector3d
+    // std::cout << "global_p: " << global_p.transpose() << std::endl;
 
+    // // 输出 Quaterniond
+    // std::cout << "global_q: " 
+    //           << global_q.w() << " " 
+    //           << global_q.x() << " " 
+    //           << global_q.y() << " " 
+    //           << global_q.z() << std::endl;
+
+    // // 输出 double
+    // std::cout << "global_t: " << global_t << std::endl;
     nav_msgs::Odometry odometry;
     odometry.header.stamp = ros::Time(global_t);
     odometry.header.frame_id = "world";
@@ -185,20 +199,13 @@ void processData() {
     odometry.pose.pose.orientation.y = global_q.y();
     odometry.pose.pose.orientation.z = global_q.z();
     odometry.pose.pose.orientation.w = global_q.w();
-
     pub_global_odometry.publish(odometry);
     pub_global_path.publish(*global_path);
-
-    // Send data to server
-    std::stringstream ss;
-    ss << "drone_id:" << drone_id << ",";
-    ss << "time:" << global_t << ",";
-    ss << "position:" << global_p.x() << "," << global_p.y() << "," << global_p.z() << ",";
-    ss << "orientation:" << global_q.w() << "," << global_q.x() << "," << global_q.y() << "," << global_q.z();
-    sendToServer(ss.str());
 }
 
-void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) {
+
+void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) { 
+    // std::cout << "===================================odom distance callback============================" << std::endl;   
     if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
     {
         m_buf.lock();
@@ -218,7 +225,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     last_vio_pos[0] = self_odom_msg->pose.pose.position.x;
     last_vio_pos[1] = self_odom_msg->pose.pose.position.y;
     last_vio_pos[2] = self_odom_msg->pose.pose.position.z;
-
+    // std::cout << "=====================size==========================" << distance_msg->nodes[0].id << std::endl;
     m_buf.lock();
     std::pair<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> tmpPair = std::make_pair(*self_odom_msg, *distance_msg);
     odom_distane_queue.push(tmpPair);
@@ -233,6 +240,7 @@ void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone
     m_buf.unlock();
 }
 
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "global_fusion_node");
@@ -246,8 +254,6 @@ int main(int argc, char **argv)
     n.param<std::string>("self_odom_topic", self_odom_topic, "/vins_fusion/imu_propagate");
     n.param<std::string>("linktrack_nodeframe_topic", linktrack_nodeframe_topic, "/nlink_linktrack_nodeframe2");
     n.param<std::string>("imu_topic", imu_topic, "/mavros/imu/data_raw");
-    n.param<std::string>("server_ip", server_ip, "127.0.0.1");
-    n.param<int>("server_port", server_port, 12345);
 
     ros::Subscriber sub_vio_path = n.subscribe(pose_graph_path_topic, 1000, vio_path_callback);
     ros::Subscriber sub_imu = n.subscribe(imu_topic, 100, imu_callback);
@@ -261,6 +267,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_other_odom_4 = n.subscribe<nav_msgs::Odometry>("/drone_4/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 4));
     ros::Subscriber sub_other_odom_5 = n.subscribe<nav_msgs::Odometry>("/drone_5/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 5));
 
+    
     message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, self_odom_topic, 1);
     message_filters::Subscriber<nlink_parser::LinktrackNodeframe2> distance_sub(n, linktrack_nodeframe_topic, 1);
 
@@ -270,16 +277,6 @@ int main(int argc, char **argv)
 
     pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1000);
     pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 1000);
-
-    try {
-        tcp::resolver resolver(io_service);
-        tcp::resolver::query query(server_ip, std::to_string(server_port));
-        tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-        boost::asio::connect(socket, endpoint_iterator);
-    } catch (std::exception& e) {
-        std::cerr << "Could not connect to server: " << e.what() << std::endl;
-        return 1;
-    }
 
     ros::spin();
 
