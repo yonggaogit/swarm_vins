@@ -2,7 +2,8 @@
 #include "Factors.h"
 #include <ros/ros.h>
 
-GlobalOptimization::GlobalOptimization()
+GlobalOptimization::GlobalOptimization(int window_size)
+    : window_size_(window_size)
 {
     newVIO = false;
     global_path.header.frame_id = "world";
@@ -94,23 +95,29 @@ void GlobalOptimization::optimize()
 
             mPoseMap.lock();
 
-            auto dis_iter = disMap.begin();
-            auto self_iter = selfPoseMap.begin();
-            auto other_iter = otherPoseMap.begin();
+            // 只优化窗口内的位姿
+            if (disMap.size() > window_size_ && selfPoseMap.size() > window_size_ && otherPoseMap.size() > window_size_) {
+                auto dis_iter = disMap.end();
+                auto self_iter = selfPoseMap.end();
+                auto other_iter = otherPoseMap.end();
+                std::advance(dis_iter, -window_size_);
+                std::advance(self_iter, -window_size_);
+                std::advance(other_iter, -window_size_);
 
-            while (dis_iter != disMap.end() && self_iter != selfPoseMap.end() && other_iter != otherPoseMap.end()) {
-                double distance = dis_iter->second;
+                while (dis_iter != disMap.end() && self_iter != selfPoseMap.end() && other_iter != otherPoseMap.end()) {
+                    double distance = dis_iter->second;
 
-                problem.AddResidualBlock(
-                    DistanceResidual::Create(distance),
-                    nullptr,
-                    self_iter->second.data(),
-                    other_iter->second.data()
-                );
+                    problem.AddResidualBlock(
+                        DistanceResidual::Create(distance),
+                        nullptr,
+                        self_iter->second.data(),
+                        other_iter->second.data()
+                    );
 
-                ++dis_iter;
-                ++self_iter;
-                ++other_iter;
+                    ++dis_iter;
+                    ++self_iter;
+                    ++other_iter;
+                }
             }
 
             mPoseMap.unlock();
@@ -131,9 +138,7 @@ void GlobalOptimization::optimize()
                 if (it == lastElement) {
                     lastT = it->first;
                     lastP = Eigen::Vector3d(it->second[0], it->second[1], it->second[2]);
-                    
-                    lastQ = Eigen::Quaterniond(it->second[3], it->second[4], 
-                                                                        it->second[5], it->second[6]).toRotationMatrix();
+                    lastQ = Eigen::Quaterniond(it->second[3], it->second[4], it->second[5], it->second[6]).toRotationMatrix();
                 }
             }
             updateGlobalPath();

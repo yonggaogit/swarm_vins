@@ -4,14 +4,8 @@
 #include "parameters.h"
 
 int USE_LOOP_VINS;
-int REALITIVE_POSE_LENGTH;
 int IMU_BUFFER_SIZE;
-double VINS_T_VAR;
-double VINS_Q_VAR;
-double UWB_VAR_X;
-double UWB_VAR_Y;
-double UWB_VAR_Z;
-double UWB_SIM_SIGMA;
+int WINDOW_SIZE;
 double TIME_TOLERANCE;
 double MOVE_DIS;
 template <typename T>
@@ -44,10 +38,12 @@ void readParameters(ros::NodeHandle &n)
     TIME_TOLERANCE = fsSettings["time_tolerance"];
     MOVE_DIS = fsSettings["move_dis"];
     IMU_BUFFER_SIZE = fsSettings["imu_buffer_size"];
+    WINDOW_SIZE = fsSettings["window_size"];
     fsSettings.release();
 
-    std::cout<<"use_loop_vins:"<<USE_LOOP_VINS <<std::endl;
-    std::cout<<"time_tolerance:"<<TIME_TOLERANCE <<std::endl;
-    std::cout<<"imu_buffer_size:"<<IMU_BUFFER_SIZE <<std::endl;
-    std::cout<<"move_dis:"<<MOVE_DIS <<std::endl;
+    std::cout<<"use_loop_vins:"<< USE_LOOP_VINS <<std::endl;
+    std::cout<<"time_tolerance:"<< TIME_TOLERANCE <<std::endl;
+    std::cout<<"imu_buffer_size:"<< IMU_BUFFER_SIZE <<std::endl;
+    std::cout<<"move_dis:"<< MOVE_DIS <<std::endl;
+    std::cout<<"window_size:"<< WINDOW_SIZE <<std::endl;
 }

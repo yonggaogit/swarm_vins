@@ -8,4 +8,5 @@ extern int USE_LOOP_VINS;
 extern double TIME_TOLERANCE;
 extern double MOVE_DIS;
 extern int IMU_BUFFER_SIZE;
+extern int WINDOW_SIZE;
 void readParameters(ros::NodeHandle &n);

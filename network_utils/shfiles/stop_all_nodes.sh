@@ -3,15 +3,7 @@
 # Usage: ./stop_drone.sh <drone_id>
 
 DRONE_ID=$1
-USER="coolas"
-PASSWORD="504"
-
-# 配置无人机 IP 地址
-DRONE1_IP="192.168.7.104"
-DRONE2_IP="192.168.7.202"
-DRONE3_IP="192.168.1.3"
-DRONE4_IP="192.168.1.4"
-DRONE5_IP="192.168.1.5"
+source /home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
 
 # 获取无人机 IP 地址
 get_ip_by_id() {

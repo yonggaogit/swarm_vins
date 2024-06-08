@@ -20,7 +20,7 @@ using namespace std;
 class GlobalOptimization
 {
 public:
-	GlobalOptimization();
+	GlobalOptimization(int window_size);
 	~GlobalOptimization();
 	void inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ);
 	void inputOther(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ);
@@ -46,4 +46,6 @@ private:
 	Eigen::Quaterniond lastQ;
 	double lastT;
 	std::thread threadOpt;
+
+	int window_size_;
 };
