@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/drone_config.cfg
+source ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
 
 
 DRONE_IPS=($DRONE1_IP $DRONE2_IP $DRONE3_IP $DRONE4_IP $DRONE5_IP)
