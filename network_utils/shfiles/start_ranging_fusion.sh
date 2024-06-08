@@ -11,7 +11,7 @@ LINKTRACK_NODEFRAME_TOPIC=$6
 IMU_TOPIC=$7
 
 source /opt/ros/noetic/setup.bash;
-source ~/JKW_PROJECT/swarm_vins_ws/devel/setup.bash;
+source /home/coolas/JKW_PROJECT/swarm_vins_ws/devel/setup.bash;
 
 echo $DRONE_ID
 echo $NUM_DRONES

@@ -3,7 +3,7 @@
 # Usage: ./stop_drone.sh <drone_id>
 
 DRONE_ID=$1
-source ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
+source /home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
 
 # 获取无人机 IP 地址
 get_ip_by_id() {
