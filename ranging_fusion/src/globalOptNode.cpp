@@ -58,6 +58,9 @@ nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros
     orientation.z() = odom_msg.pose.pose.orientation.z;
     Eigen::Vector3d velocity = Eigen::Vector3d(odom_msg.twist.twist.linear.x, odom_msg.twist.twist.linear.y, odom_msg.twist.twist.linear.z);
 
+    // 重力加速度
+    Eigen::Vector3d gravity(0, 0, -9.81);
+
     ros::Time current_time = odom_msg.header.stamp;
     for (const auto &imu_msg : imu_buffer)
     {
@@ -74,7 +77,8 @@ nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros
         dq = Eigen::AngleAxisd(gyro.norm() * dt, gyro.normalized());
         orientation = orientation * dq;
 
-        velocity += orientation * acc * dt;
+        // 加上重力加速度
+        velocity += (orientation * acc + gravity) * dt;
         position += velocity * dt;
 
         current_time = imu_msg.header.stamp;
@@ -101,7 +105,7 @@ void processData() {
     m_buf.lock();
     while (! odom_distane_queue.empty() && ! other_odom_queue.empty()) {
         // std::cout << odom_distane_queue.size() << "," << other_odom_queue.size() << std::endl;
-        // std::cout << "===================================into queue============================" << std::endl;
+        // std::cout << "===================================into queue 1============================" << std::endl;
         auto& [odom_msg, distance_msg] = odom_distane_queue.front();
 
         double self_time = odom_msg.header.stamp.toNSec()/1e9;
@@ -113,8 +117,11 @@ void processData() {
         // std::cout << "self_time:" << self_time << std::endl;
         // std::cout << "other_time:" << other_time << std::endl;
         // std::cout << "time_diff:" << fabs( self_time - other_time ) << std::endl;
+        // std::cout << "time_tolerance:" << TIME_TOLERANCE << std::endl;
+        // std::cout << "===================================into queue 2============================" << std::endl;
         if( fabs( self_time - other_time ) <= TIME_TOLERANCE )
         {
+            // std::cout << "===============go to if1===============" << std::endl;
             double dis = -1.0;
             for( auto node : distance_msg.nodes ) {
                 // std::cout << "node.id" << node.id << std::endl;
@@ -163,18 +170,20 @@ void processData() {
             }
         }
         else if(self_time < other_time) {
+            // std::cout << "===============go to if2===============" << std::endl;
             odom_distane_queue.pop();
         }
         else {
+            // std::cout << "===============go to if3===============" << std::endl;
             other_odom_queue.pop();
         }
-
+        // std::cout << odom_distane_queue.size() << "," << other_odom_queue.size() << std::endl;
     }
     m_buf.unlock();
     // std::cout << "=============================youhua============================" << std::endl;
     Eigen::Vector3d global_p;
     Eigen:: Quaterniond global_q;
-    double global_t;
+    double global_t = 0.0;
     globalEstimator->getGlobalOdom(global_t, global_p, global_q);
     // // 输出 Vector3d
     // std::cout << "global_p: " << global_p.transpose() << std::endl;
@@ -189,7 +198,10 @@ void processData() {
     // // 输出 double
     // std::cout << "global_t: " << global_t << std::endl;
     nav_msgs::Odometry odometry;
-    odometry.header.stamp = ros::Time(global_t);
+    // if ( global_t != 0.0 ) {
+    //     odometry.header.stamp = ros::Time(global_t);
+    // } else odometry.header.stamp = ros::Time::now();
+    odometry.header.stamp = ros::Time::now();
     odometry.header.frame_id = "world";
     odometry.child_frame_id = "world";
     odometry.pose.pose.position.x = global_p.x();
@@ -235,6 +247,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
 }
 
 void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone_id) {
+    // std::cout << "=========================other odom start=============================" << std::endl;
     m_buf.lock();
     other_odom_queue.push(make_pair(drone_id, *msg));
     m_buf.unlock();

@@ -82,12 +82,9 @@ void GlobalOptimization::getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen:
     odomQ = lastQ;
 }
 
-void GlobalOptimization::optimize()
-{
-    while(true)
-    {
-        if(newVIO)
-        {
+void GlobalOptimization::optimize() {
+    while (true) {
+        if (newVIO) {
             newVIO = false;
             printf("#############global optimization begin#########\n");
 
@@ -104,15 +101,59 @@ void GlobalOptimization::optimize()
                 std::advance(self_iter, -window_size_);
                 std::advance(other_iter, -window_size_);
 
+                double distance_weight = 0.2; // 设置距离残差的权重
+                double smoothness_weight = 0.1; // 设置平滑性残差的权重
+                double velocity_weight = 0.3; // 设置速度残差的权重
+                double acceleration_weight = 0.3; // 设置加速度残差的权重
+
                 while (dis_iter != disMap.end() && self_iter != selfPoseMap.end() && other_iter != otherPoseMap.end()) {
                     double distance = dis_iter->second;
 
                     problem.AddResidualBlock(
-                        DistanceResidual::Create(distance),
+                        DistanceResidual::Create(distance, distance_weight),
                         nullptr,
                         self_iter->second.data(),
                         other_iter->second.data()
                     );
+
+                    // 添加平滑约束
+                    if (self_iter != selfPoseMap.begin()) {
+                        auto prev_self_iter = std::prev(self_iter);
+                        problem.AddResidualBlock(
+                            SmoothnessResidual::Create(smoothness_weight),
+                            nullptr,
+                            prev_self_iter->second.data(),
+                            self_iter->second.data()
+                        );
+
+                        // 添加速度约束
+                        if (std::distance(selfPoseMap.begin(), self_iter) > 1) {
+                            auto prev_prev_self_iter = std::prev(prev_self_iter);
+                            double dt = prev_self_iter->first - prev_prev_self_iter->first;
+                            problem.AddResidualBlock(
+                                VelocityResidual::Create(dt, velocity_weight),
+                                nullptr,
+                                prev_prev_self_iter->second.data(),
+                                prev_self_iter->second.data(),
+                                self_iter->second.data()
+                            );
+                        }
+
+                        // 添加加速度约束
+                        if (std::distance(selfPoseMap.begin(), self_iter) > 2) {
+                            auto prev_prev_self_iter = std::prev(prev_self_iter);
+                            auto prev_prev_prev_self_iter = std::prev(prev_prev_self_iter);
+                            double dt = prev_prev_self_iter->first - prev_prev_prev_self_iter->first;
+                            problem.AddResidualBlock(
+                                AccelerationResidual::Create(dt, acceleration_weight),
+                                nullptr,
+                                prev_prev_prev_self_iter->second.data(),
+                                prev_prev_self_iter->second.data(),
+                                prev_self_iter->second.data(),
+                                self_iter->second.data()
+                            );
+                        }
+                    }
 
                     ++dis_iter;
                     ++self_iter;
@@ -146,6 +187,7 @@ void GlobalOptimization::optimize()
         }
     }
 }
+
 
 void GlobalOptimization::updateGlobalPath()
 {
