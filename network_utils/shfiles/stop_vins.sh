@@ -3,7 +3,7 @@
 # Usage: ./stop_drone.sh <drone_id>
 
 DRONE_ID=$1
-source /home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
+source ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg
 
 # 固定的节点名列表
 NODE_NAMES=(

@@ -9,7 +9,7 @@ DRONE2_IP=$4
 DRONE3_IP=$5
 DRONE4_IP=$6
 DRONE5_IP=$7
-BASE_PORT=$8
+SERVER_TO_CLIENT_BASE_PORT=$8
 OFFSET_MULTIPLIER=$9
 ODOM_TOPIC=${10}
 VINS_TOPIC=${11}
@@ -17,4 +17,4 @@ VINS_TOPIC=${11}
 source /opt/ros/noetic/setup.bash;
 source ~/JKW_PROJECT/swarm_vins_ws/devel/setup.bash;
 
-roslaunch network_utils start_drone.launch drone_id:=$DRONE_ID num_drones:=$NUM_DRONES drone1_ip:=$DRONE1_IP drone2_ip:=$DRONE2_IP drone3_ip:=$DRONE3_IP drone4_ip:=$DRONE4_IP drone5_ip:=$DRONE5_IP base_port:=$BASE_PORT offset_multiplier:=$OFFSET_MULTIPLIER odom_topic:=$ODOM_TOPIC vins_topic:=$VINS_TOPIC;
+roslaunch network_utils start_drone.launch drone_id:=$DRONE_ID num_drones:=$NUM_DRONES drone1_ip:=$DRONE1_IP drone2_ip:=$DRONE2_IP drone3_ip:=$DRONE3_IP drone4_ip:=$DRONE4_IP drone5_ip:=$DRONE5_IP base_port:=$SERVER_TO_CLIENT_BASE_PORT offset_multiplier:=$OFFSET_MULTIPLIER odom_topic:=$ODOM_TOPIC vins_topic:=$VINS_TOPIC;

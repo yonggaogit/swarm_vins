@@ -3,7 +3,7 @@
         <param name="drone_id" value="1" />
         <param name="num_drones" value="2" />
 
-        <param name="uwb_vio_config" value="/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml" />
+        <param name="uwb_vio_config" value="~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml" />
 
         <param name="pose_graph_path_topic" value="/pose_graph/path_1"/>
         <param name="self_odom_topic" value="/vins_fusion/imu_propagate"/>
