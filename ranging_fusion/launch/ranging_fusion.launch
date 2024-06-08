@@ -1,13 +1,21 @@
 <launch>
+    <arg name="drone_id" default="1" />
+    <arg name="num_drones" default="2" />
+    <arg name="uwb_vio_config" default="~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/arg.yaml" />
+    <arg name="pose_graph_path_topic" default="/pose_graph/path_1"/>
+    <arg name="self_odom_topic" default="/vins_fusion/imu_propagate"/>
+    <arg name="linktrack_nodeframe_topic" default="/nlink_linktrack_nodeframe2"/>
+    <arg name="imu_topic" default="/mavros/imu/data_raw"/>
+
     <node pkg="ranging_fusion" type="ranging_fusion_node" name="ranging_fusion" output="screen">
-        <param name="drone_id" value="1" />
-        <param name="num_drones" value="2" />
+        <param name="drone_id" value="$(arg drone_id)" />
+        <param name="num_drones" value="$(arg num_drones)" />
 
-        <param name="uwb_vio_config" value="~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml" />
+        <param name="uwb_vio_config" value="$(arg uwb_vio_config)" />
 
-        <param name="pose_graph_path_topic" value="/pose_graph/path_1"/>
-        <param name="self_odom_topic" value="/vins_fusion/imu_propagate"/>
-        <param name="linktrack_nodeframe_topic" value="/nlink_linktrack_nodeframe2"/>
-        <param name="imu_topic" value="/mavros/imu/data_raw"/>
+        <param name="pose_graph_path_topic" value="$(arg drone_id)"/>
+        <param name="self_odom_topic" value="$(arg self_odom_topic)"/>
+        <param name="linktrack_nodeframe_topic" value="$(arg linktrack_nodeframe_topic)"/>
+        <param name="imu_topic" value="$(arg imu_topic)"/>
     </node>
 </launch>
