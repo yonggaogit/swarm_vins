@@ -1,0 +1,12 @@
+<launch>
+    <arg name="server_ip" default="192.168.1.100" />
+    <arg name="server_port" default="12345" />
+    <arg name="rviz_config" default="/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/default.rviz" />
+
+    <node name="server_node" pkg="networkd_utils" type="server_node" output="screen">
+        <param name="server_ip" value="$(arg server_ip)" />
+        <param name="server_port" value="$(arg server_port)" />
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_config)" />
+</launch>

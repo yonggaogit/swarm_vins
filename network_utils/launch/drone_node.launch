@@ -1,0 +1,13 @@
+<launch>
+    <arg name="drone_id" default="1" />
+    <arg name="server_ip" default="192.168.1.100" />
+    <arg name="server_port" default="12345" />
+    <arg name="offset_multiplier" default="1.0" />
+
+    <node name="drone_node" pkg="network_utils" type="drone_node" output="screen">
+        <param name="drone_id" value="$(arg drone_id)" />
+        <param name="server_ip" value="$(arg server_ip)" />
+        <param name="server_port" value="$(arg server_port)" />
+        <param name="offset_multiplier" value="$(arg offset_multiplier)" />
+    </node>
+</launch>
