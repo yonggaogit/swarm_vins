@@ -94,14 +94,17 @@ private:
             }
         } catch (boost::archive::archive_exception& e) {
             ROS_ERROR("Archive error: %s", e.what());
+            delete socket;
         } catch (std::bad_alloc& e) {
             ROS_ERROR("Memory allocation error: %s", e.what());
+            delete socket;
         } catch (std::exception& e) {
             ROS_ERROR("Client handling error: %s", e.what());
+            delete socket;
         } catch (...) {
             ROS_ERROR("Unknown error occurred while handling client");
+            delete socket;
         }
-        delete socket;
     }
 
     template <typename T>
