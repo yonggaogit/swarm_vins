@@ -71,6 +71,7 @@ private:
             boost::archive::binary_oarchive archive(archive_stream);
             archive << drone_id << ros::Time::now() << type << msg;
             std::string outbound_data = archive_stream.str();
+            outbound_data += "\n";  // Add delimiter
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
             ROS_INFO("Sent Odometry data of type %d", type);
         } catch (boost::system::system_error& e) {
@@ -84,6 +85,7 @@ private:
             boost::archive::binary_oarchive archive(archive_stream);
             archive << drone_id << ros::Time::now() << type << msg;
             std::string outbound_data = archive_stream.str();
+            outbound_data += "\n";  // Add delimiter
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
             ROS_INFO("Sent Path data of type %d", type);
         } catch (boost::system::system_error& e) {
