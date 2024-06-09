@@ -3,8 +3,7 @@
 #include <nav_msgs/Path.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include "serialization_helpers.hpp"
+#include <iostream>
 
 using boost::asio::ip::tcp;
 
@@ -37,25 +36,27 @@ public:
     }
 
     void imuCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-        sendData(IMU_PROPAGATE, *msg);
+        sendData(IMU_PROPAGATE, msg->header.stamp, msg->pose.pose.position, msg->pose.pose.orientation);
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        sendData(VINS_PATH, *msg);
+        for (const auto& pose : msg->poses) {
+            sendData(VINS_PATH, pose.header.stamp, pose.pose.position, pose.pose.orientation);
+        }
     }
 
     void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-        nav_msgs::Odometry modified_msg = *msg;
-        modifyYCoordinate(modified_msg.pose.pose.position.y);
-        sendData(GLOBAL_ODOMETRY, modified_msg);
+        geometry_msgs::Point position = msg->pose.pose.position;
+        modifyYCoordinate(position.y);
+        sendData(GLOBAL_ODOMETRY, msg->header.stamp, position, msg->pose.pose.orientation);
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        nav_msgs::Path modified_msg = *msg;
-        for (auto& pose : modified_msg.poses) {
-            modifyYCoordinate(pose.pose.position.y);
+        for (auto& pose : msg->poses) {
+            geometry_msgs::Point position = pose.pose.position;
+            modifyYCoordinate(position.y);
+            sendData(GLOBAL_PATH, pose.header.stamp, position, pose.pose.orientation);
         }
-        sendData(GLOBAL_PATH, modified_msg);
     }
 
 private:
@@ -65,29 +66,15 @@ private:
         }
     }
 
-    void sendData(MessageType type, const nav_msgs::Odometry& msg) {
+    void sendData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
         try {
-            std::ostringstream archive_stream;
-            boost::archive::binary_oarchive archive(archive_stream);
-            archive << drone_id << ros::Time::now() << type << msg;
-            std::string outbound_data = archive_stream.str();
-            outbound_data += "\n";  // Add delimiter
+            std::ostringstream oss;
+            oss << drone_id << " " << timestamp.sec << " " << timestamp.nsec << " " << type << " "
+                << position.x << " " << position.y << " " << position.z << " "
+                << orientation.x << " " << orientation.y << " " << orientation.z << " " << orientation.w << "\n";
+            std::string outbound_data = oss.str();
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
-            ROS_INFO("Sent Odometry data of type %d", type);
-        } catch (boost::system::system_error& e) {
-            ROS_ERROR("Failed to send data: %s", e.what());
-        }
-    }
-
-    void sendData(MessageType type, const nav_msgs::Path& msg) {
-        try {
-            std::ostringstream archive_stream;
-            boost::archive::binary_oarchive archive(archive_stream);
-            archive << drone_id << ros::Time::now() << type << msg;
-            std::string outbound_data = archive_stream.str();
-            outbound_data += "\n";  // Add delimiter
-            boost::asio::write(socket, boost::asio::buffer(outbound_data));
-            ROS_INFO("Sent Path data of type %d", type);
+            ROS_INFO("Sent data of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send data: %s", e.what());
         }

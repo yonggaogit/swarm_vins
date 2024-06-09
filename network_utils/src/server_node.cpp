@@ -3,8 +3,8 @@
 #include <nav_msgs/Path.h>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include "serialization_helpers.hpp"
+#include <iostream>
+#include <sstream>
 
 using boost::asio::ip::tcp;
 
@@ -17,7 +17,8 @@ enum MessageType {
 
 class ServerNode {
 public:
-    ServerNode(const std::string& ip, int port) : io_service(), acceptor(io_service, tcp::endpoint(boost::asio::ip::address::from_string(ip), port)) {
+    ServerNode(const std::string& ip, int port) 
+        : io_service(), acceptor(io_service, tcp::endpoint(boost::asio::ip::address::from_string(ip), port)) {
         startAccept();
         ROS_INFO("Server started on %s:%d", ip.c_str(), port);
     }
@@ -53,37 +54,53 @@ private:
                 boost::asio::streambuf buf;
                 boost::asio::read_until(*socket, buf, '\n');
                 std::istream is(&buf);
-                boost::archive::binary_iarchive archive(is);
-                
-                int drone_id;
-                ros::Time timestamp;
-                MessageType type;
-                archive >> drone_id >> timestamp >> type;
+                int drone_id, type;
+                unsigned int sec, nsec;
+                geometry_msgs::Point position;
+                geometry_msgs::Quaternion orientation;
 
-                ROS_INFO("Received data from drone %d, timestamp: %d.%d, message type: %d", drone_id, timestamp.sec, timestamp.nsec, type);
+                is >> drone_id >> sec >> nsec >> type
+                   >> position.x >> position.y >> position.z
+                   >> orientation.x >> orientation.y >> orientation.z >> orientation.w;
+
+                ros::Time timestamp(sec, nsec);
+
+                ROS_INFO("Received data from drone %d, timestamp: %u.%u, message type: %d", drone_id, sec, nsec, type);
 
                 switch (type) {
                     case IMU_PROPAGATE: {
                         nav_msgs::Odometry msg;
-                        archive >> msg;
+                        msg.header.stamp = timestamp;
+                        msg.pose.pose.position = position;
+                        msg.pose.pose.orientation = orientation;
                         processAndPublish(drone_id, "/vins_fusion/imu_propagate", msg);
                         break;
                     }
                     case VINS_PATH: {
                         nav_msgs::Path msg;
-                        archive >> msg;
+                        geometry_msgs::PoseStamped pose_stamped;
+                        pose_stamped.header.stamp = timestamp;
+                        pose_stamped.pose.position = position;
+                        pose_stamped.pose.orientation = orientation;
+                        msg.poses.push_back(pose_stamped);
                         processAndPublish(drone_id, "/vins_fusion/path", msg);
                         break;
                     }
                     case GLOBAL_ODOMETRY: {
                         nav_msgs::Odometry msg;
-                        archive >> msg;
+                        msg.header.stamp = timestamp;
+                        msg.pose.pose.position = position;
+                        msg.pose.pose.orientation = orientation;
                         processAndPublish(drone_id, "/ranging_fusion/global_odometry", msg);
                         break;
                     }
                     case GLOBAL_PATH: {
                         nav_msgs::Path msg;
-                        archive >> msg;
+                        geometry_msgs::PoseStamped pose_stamped;
+                        pose_stamped.header.stamp = timestamp;
+                        pose_stamped.pose.position = position;
+                        pose_stamped.pose.orientation = orientation;
+                        msg.poses.push_back(pose_stamped);
                         processAndPublish(drone_id, "/ranging_fusion/global_path", msg);
                         break;
                     }
@@ -92,19 +109,12 @@ private:
                         break;
                 }
             }
-        } catch (boost::archive::archive_exception& e) {
-            ROS_ERROR("Archive error: %s", e.what());
-            delete socket;
-        } catch (std::bad_alloc& e) {
-            ROS_ERROR("Memory allocation error: %s", e.what());
-            delete socket;
         } catch (std::exception& e) {
             ROS_ERROR("Client handling error: %s", e.what());
-            delete socket;
         } catch (...) {
             ROS_ERROR("Unknown error occurred while handling client");
-            delete socket;
         }
+        delete socket;
     }
 
     template <typename T>
