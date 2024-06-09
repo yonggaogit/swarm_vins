@@ -2,95 +2,104 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <boost/asio.hpp>
-#include <boost/array.hpp>
 #include <boost/bind.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <string>
-#include <sstream>
+#include <boost/archive/binary_oarchive.hpp>
+#include "serialization_helpers.hpp"
 
 using boost::asio::ip::tcp;
 
-int drone_id;
-std::string server_ip;
-int server_port;
-double offset_multiplier;
+enum MessageType {
+    IMU_PROPAGATE,
+    VINS_PATH,
+    GLOBAL_ODOMETRY,
+    GLOBAL_PATH
+};
 
-void sendToServer(const std::string &data) {
-    try {
-        boost::asio::io_service io_service;
-        tcp::socket socket(io_service);
+class DroneNode {
+public:
+    DroneNode(int id, const std::string& server_ip, int server_port, double offset_multiplier)
+        : drone_id(id), io_service(), socket(io_service), offset_multiplier(offset_multiplier) {
         tcp::resolver resolver(io_service);
         tcp::resolver::query query(server_ip, std::to_string(server_port));
-        boost::asio::connect(socket, resolver.resolve(query));
-
-        boost::system::error_code ignored_error;
-        boost::asio::write(socket, boost::asio::buffer(data), ignored_error);
+        tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+        boost::asio::connect(socket, endpoint_iterator);
+        
+        imu_sub = nh.subscribe("/vins_fusion/imu_propagate", 10, &DroneNode::imuCallback, this);
+        path_sub = nh.subscribe("/vins_fusion/path", 10, &DroneNode::pathCallback, this);
+        global_odometry_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdometryCallback, this);
+        global_path_sub = nh.subscribe("/ranging_fusion/global_path", 10, &DroneNode::globalPathCallback, this);
     }
-    catch (std::exception &e) {
-        ROS_ERROR("Exception: %s", e.what());
+
+    void imuCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+        sendData(IMU_PROPAGATE, *msg);
     }
-}
 
-void odomCallback(const nav_msgs::Odometry::ConstPtr &msg, const std::string &topic_name) {
-    boost::property_tree::ptree pt;
-    pt.put("drone_id", drone_id);
-    pt.put("topic_name", topic_name);
-    pt.put("current_time", ros::Time::now().toNSec());
-    pt.put("msg.header.stamp", msg->header.stamp.toNSec());
-    pt.put("msg.pose.pose.position.x", msg->pose.pose.position.x);
-    pt.put("msg.pose.pose.position.y", msg->pose.pose.position.y + (drone_id - 1) * offset_multiplier);
-    pt.put("msg.pose.pose.position.z", msg->pose.pose.position.z);
-    pt.put("msg.pose.pose.orientation.x", msg->pose.pose.orientation.x);
-    pt.put("msg.pose.pose.orientation.y", msg->pose.pose.orientation.y);
-    pt.put("msg.pose.pose.orientation.z", msg->pose.pose.orientation.z);
-    pt.put("msg.pose.pose.orientation.w", msg->pose.pose.orientation.w);
-
-    std::ostringstream oss;
-    boost::property_tree::write_json(oss, pt);
-    sendToServer(oss.str());
-}
-
-void pathCallback(const nav_msgs::Path::ConstPtr &msg, const std::string &topic_name) {
-    boost::property_tree::ptree pt;
-    pt.put("drone_id", drone_id);
-    pt.put("topic_name", topic_name);
-    pt.put("current_time", ros::Time::now().toNSec());
-    pt.put("msg.header.stamp", msg->header.stamp.toNSec());
-
-    boost::property_tree::ptree poses;
-    for (const auto &pose : msg->poses) {
-        boost::property_tree::ptree pose_pt;
-        pose_pt.put("position.x", pose.pose.position.x);
-        pose_pt.put("position.y", pose.pose.position.y + (drone_id - 1) * offset_multiplier);
-        pose_pt.put("position.z", pose.pose.position.z);
-        pose_pt.put("orientation.x", pose.pose.orientation.x);
-        pose_pt.put("orientation.y", pose.pose.orientation.y);
-        pose_pt.put("orientation.z", pose.pose.orientation.z);
-        pose_pt.put("orientation.w", pose.pose.orientation.w);
-        poses.push_back(std::make_pair("", pose_pt));
+    void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
+        sendData(VINS_PATH, *msg);
     }
-    pt.add_child("msg.poses", poses);
 
-    std::ostringstream oss;
-    boost::property_tree::write_json(oss, pt);
-    sendToServer(oss.str());
-}
+    void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+        nav_msgs::Odometry modified_msg = *msg;
+        modifyYCoordinate(modified_msg.pose.pose.position.y);
+        sendData(GLOBAL_ODOMETRY, modified_msg);
+    }
 
-int main(int argc, char **argv) {
-    ros::init(argc, argv, "drone_node");
+    void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
+        nav_msgs::Path modified_msg = *msg;
+        for (auto& pose : modified_msg.poses) {
+            modifyYCoordinate(pose.pose.position.y);
+        }
+        sendData(GLOBAL_PATH, modified_msg);
+    }
+
+private:
+    void modifyYCoordinate(double& y) {
+        if (drone_id > 1) {
+            y += (drone_id - 1) * offset_multiplier;
+        }
+    }
+
+    void sendData(MessageType type, const nav_msgs::Odometry& msg) {
+        std::ostringstream archive_stream;
+        boost::archive::binary_oarchive archive(archive_stream);
+        archive << drone_id << ros::Time::now() << type << msg;
+        std::string outbound_data = archive_stream.str();
+        boost::asio::write(socket, boost::asio::buffer(outbound_data));
+    }
+
+    void sendData(MessageType type, const nav_msgs::Path& msg) {
+        std::ostringstream archive_stream;
+        boost::archive::binary_oarchive archive(archive_stream);
+        archive << drone_id << ros::Time::now() << type << msg;
+        std::string outbound_data = archive_stream.str();
+        boost::asio::write(socket, boost::asio::buffer(outbound_data));
+    }
+
     ros::NodeHandle nh;
-    ros::NodeHandle private_nh("~");
+    int drone_id;
+    double offset_multiplier;
+    ros::Subscriber imu_sub, path_sub, global_odometry_sub, global_path_sub;
+    boost::asio::io_service io_service;
+    tcp::socket socket;
+};
 
-    private_nh.getParam("drone_id", drone_id);
-    private_nh.getParam("server_ip", server_ip);
-    private_nh.getParam("server_port", server_port);
-    private_nh.getParam("offset_multiplier", offset_multiplier);
+int main(int argc, char** argv) {
+    ros::init(argc, argv, "drone_node");
+    ros::NodeHandle nh("~");
 
-    ros::Subscriber sub1 = nh.subscribe<nav_msgs::Odometry>("/vins_fusion/imu_propagate", 10, boost::bind(odomCallback, _1, "imu_propagate"));
-    ros::Subscriber sub2 = nh.subscribe<nav_msgs::Odometry>("/ranging_fusion/global_odometry", 10, boost::bind(odomCallback, _1, "global_odometry"));
-    ros::Subscriber sub3 = nh.subscribe<nav_msgs::Path>("/ranging_fusion/global_path", 10, boost::bind(pathCallback, _1, "global_path"));
+    int drone_id;
+    std::string server_ip;
+    int server_port;
+    double offset_multiplier;
+
+    nh.param("drone_id", drone_id, 1);
+    nh.param("server_ip", server_ip, std::string("127.0.0.1"));
+    nh.param("server_port", server_port, 9000);
+    nh.param("offset_multiplier", offset_multiplier, 1.0);
+
+    DroneNode drone_node(drone_id, server_ip, server_port, offset_multiplier);
 
     ros::spin();
+
     return 0;
 }
