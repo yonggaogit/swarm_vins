@@ -63,6 +63,11 @@ private:
                    >> position.x >> position.y >> position.z
                    >> orientation.x >> orientation.y >> orientation.z >> orientation.w;
 
+                if (is.fail()) {
+                    ROS_ERROR("Failed to parse data");
+                    continue;
+                }
+
                 ros::Time timestamp(sec, nsec);
 
                 ROS_INFO("Received data from drone %d, timestamp: %u.%u, message type: %d", drone_id, sec, nsec, type);

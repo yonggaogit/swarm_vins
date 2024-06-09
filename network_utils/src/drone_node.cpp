@@ -4,6 +4,8 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 using boost::asio::ip::tcp;
 
@@ -69,7 +71,8 @@ private:
     void sendData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
         try {
             std::ostringstream oss;
-            oss << drone_id << " " << timestamp.sec << " " << timestamp.nsec << " " << type << " "
+            oss << std::fixed << std::setprecision(9)
+                << drone_id << " " << timestamp.sec << " " << timestamp.nsec << " " << type << " "
                 << position.x << " " << position.y << " " << position.z << " "
                 << orientation.x << " " << orientation.y << " " << orientation.z << " " << orientation.w << "\n";
             std::string outbound_data = oss.str();
