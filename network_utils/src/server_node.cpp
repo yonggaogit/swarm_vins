@@ -15,18 +15,11 @@ enum MessageType {
     GLOBAL_PATH
 };
 
-struct DroneData {
-    int drone_id;
-    ros::Time timestamp;
-    MessageType type;
-    nav_msgs::Odometry odometry;
-    nav_msgs::Path path;
-};
-
 class ServerNode {
 public:
     ServerNode(const std::string& ip, int port) : io_service(), acceptor(io_service, tcp::endpoint(boost::asio::ip::address::from_string(ip), port)) {
         startAccept();
+        ROS_INFO("Server started on %s:%d", ip.c_str(), port);
     }
 
     void run() {
@@ -45,8 +38,10 @@ private:
 
     void handleAccept(tcp::socket* new_socket, const boost::system::error_code& error) {
         if (!error) {
+            ROS_INFO("New client connected");
             boost::thread(boost::bind(&ServerNode::handleClient, this, new_socket)).detach();
         } else {
+            ROS_ERROR("Accept error: %s", error.message().c_str());
             delete new_socket;
         }
         startAccept();
@@ -59,10 +54,13 @@ private:
                 boost::asio::read_until(*socket, buf, '\n');
                 std::istream is(&buf);
                 boost::archive::binary_iarchive archive(is);
+                
                 int drone_id;
                 ros::Time timestamp;
                 MessageType type;
                 archive >> drone_id >> timestamp >> type;
+
+                ROS_INFO("Received data from drone %d, timestamp: %d.%d, message type: %d", drone_id, timestamp.sec, timestamp.nsec, type);
 
                 switch (type) {
                     case IMU_PROPAGATE: {
@@ -89,10 +87,19 @@ private:
                         processAndPublish(drone_id, "/ranging_fusion/global_path", msg);
                         break;
                     }
+                    default:
+                        ROS_ERROR("Unknown message type: %d", type);
+                        break;
                 }
             }
+        } catch (boost::archive::archive_exception& e) {
+            ROS_ERROR("Archive error: %s", e.what());
+        } catch (std::bad_alloc& e) {
+            ROS_ERROR("Memory allocation error: %s", e.what());
         } catch (std::exception& e) {
-            ROS_ERROR("Exception: %s", e.what());
+            ROS_ERROR("Client handling error: %s", e.what());
+        } catch (...) {
+            ROS_ERROR("Unknown error occurred while handling client");
         }
         delete socket;
     }

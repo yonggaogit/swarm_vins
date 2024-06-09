@@ -19,11 +19,17 @@ class DroneNode {
 public:
     DroneNode(int id, const std::string& server_ip, int server_port, double offset_multiplier)
         : drone_id(id), io_service(), socket(io_service), offset_multiplier(offset_multiplier) {
-        tcp::resolver resolver(io_service);
-        tcp::resolver::query query(server_ip, std::to_string(server_port));
-        tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-        boost::asio::connect(socket, endpoint_iterator);
-        
+        try {
+            tcp::resolver resolver(io_service);
+            tcp::resolver::query query(server_ip, std::to_string(server_port));
+            tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+            boost::asio::connect(socket, endpoint_iterator);
+            ROS_INFO("Connected to server %s:%d", server_ip.c_str(), server_port);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to connect to server: %s", e.what());
+            ros::shutdown();
+        }
+
         imu_sub = nh.subscribe("/vins_fusion/imu_propagate", 10, &DroneNode::imuCallback, this);
         path_sub = nh.subscribe("/vins_fusion/path", 10, &DroneNode::pathCallback, this);
         global_odometry_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdometryCallback, this);
@@ -60,19 +66,29 @@ private:
     }
 
     void sendData(MessageType type, const nav_msgs::Odometry& msg) {
-        std::ostringstream archive_stream;
-        boost::archive::binary_oarchive archive(archive_stream);
-        archive << drone_id << ros::Time::now() << type << msg;
-        std::string outbound_data = archive_stream.str();
-        boost::asio::write(socket, boost::asio::buffer(outbound_data));
+        try {
+            std::ostringstream archive_stream;
+            boost::archive::binary_oarchive archive(archive_stream);
+            archive << drone_id << ros::Time::now() << type << msg;
+            std::string outbound_data = archive_stream.str();
+            boost::asio::write(socket, boost::asio::buffer(outbound_data));
+            ROS_INFO("Sent Odometry data of type %d", type);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to send data: %s", e.what());
+        }
     }
 
     void sendData(MessageType type, const nav_msgs::Path& msg) {
-        std::ostringstream archive_stream;
-        boost::archive::binary_oarchive archive(archive_stream);
-        archive << drone_id << ros::Time::now() << type << msg;
-        std::string outbound_data = archive_stream.str();
-        boost::asio::write(socket, boost::asio::buffer(outbound_data));
+        try {
+            std::ostringstream archive_stream;
+            boost::archive::binary_oarchive archive(archive_stream);
+            archive << drone_id << ros::Time::now() << type << msg;
+            std::string outbound_data = archive_stream.str();
+            boost::asio::write(socket, boost::asio::buffer(outbound_data));
+            ROS_INFO("Sent Path data of type %d", type);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to send data: %s", e.what());
+        }
     }
 
     ros::NodeHandle nh;
