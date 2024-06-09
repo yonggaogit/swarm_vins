@@ -45,3 +45,5 @@ target_link_libraries(server_node ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 # Add cmake target dependencies of the executable/library
 add_dependencies(pose_pub_sub ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(drone_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(server_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
