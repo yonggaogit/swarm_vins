@@ -8,7 +8,7 @@ DRONE_IPS=($DRONE1_IP $DRONE2_IP $DRONE3_IP $DRONE4_IP $DRONE5_IP)
 start_drone() {
     DRONE_ID=$1
     DRONE_IP=$2
-    echo "Starting drone $DRONE_ID at IP $DRONE_IP"
+    echo "Starting drone $DRONE_ID at IP $DRONE_IP:$CLIENT_TO_SERVER_PORT"
     sshpass -p $PASSWORD ssh $USER@$DRONE_IP "bash -c '/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp/start_drone_node.sh $DRONE_ID $SERVER_IP $CLIENT_TO_SERVER_PORT $OFFSET_MULTIPLIER'" &
 }
 
