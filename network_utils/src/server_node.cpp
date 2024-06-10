@@ -55,6 +55,10 @@ private:
             for (;;) {
                 uint32_t data_length = 0;
                 boost::asio::read(*socket, boost::asio::buffer(&data_length, sizeof(data_length)));
+                if (data_length > 1000000) {  // Check for excessively large messages
+                    ROS_ERROR("Received excessively large data length: %u", data_length);
+                    continue;
+                }
 
                 std::vector<char> data(data_length);
                 boost::asio::read(*socket, boost::asio::buffer(data.data(), data_length));
@@ -67,6 +71,11 @@ private:
                 std::vector<std::string> tokens;
                 while (std::getline(iss, token, '|')) {
                     tokens.push_back(token);
+                }
+
+                if (tokens.size() < 4) {
+                    ROS_ERROR("Invalid data format: %s", line.c_str());
+                    continue;
                 }
 
                 int type = std::stoi(tokens[3]);
@@ -113,6 +122,7 @@ private:
             case IMU_PROPAGATE: {
                 nav_msgs::Odometry msg;
                 msg.header.stamp = timestamp;
+                msg.header.frame_id = "world";
                 msg.pose.pose.position = position;
                 msg.pose.pose.orientation = orientation;
                 processAndPublish(drone_id, "/vins_fusion/imu_propagate", msg);
@@ -121,6 +131,7 @@ private:
             case GLOBAL_ODOMETRY: {
                 nav_msgs::Odometry msg;
                 msg.header.stamp = timestamp;
+                msg.header.frame_id = "world";
                 msg.pose.pose.position = position;
                 msg.pose.pose.orientation = orientation;
                 processAndPublish(drone_id, "/ranging_fusion/global_odometry", msg);
@@ -142,9 +153,11 @@ private:
 
         nav_msgs::Path msg;
         msg.header.stamp = timestamp;
+        msg.header.frame_id = "world";
 
-        for (size_t i = 4; i < tokens.size(); i += 11) {
+        for (size_t i = 4; i + 10 < tokens.size(); i += 11) {  // Ensure no out-of-bounds access
             geometry_msgs::PoseStamped pose_stamped;
+            pose_stamped.header.frame_id = "world";
             pose_stamped.header.stamp.sec = std::stoul(tokens[i]);
             pose_stamped.header.stamp.nsec = std::stoul(tokens[i + 1]);
             pose_stamped.pose.position.x = std::stod(tokens[i + 2]);
@@ -222,13 +235,17 @@ private:
     template <typename T>
     void processAndPublish(int drone_id, const std::string& topic, const T& msg) {
         std::string prefix = "/drone_" + std::to_string(drone_id);
-        ros::Publisher pub = nh.advertise<T>(prefix + topic, 10);
-        pub.publish(msg);
+        if (publishers.find(prefix + topic) == publishers.end()) {
+            publishers[prefix + topic] = nh.advertise<T>(prefix + topic, 10);
+        }
+        ROS_INFO("Publishing to %s", (prefix + topic).c_str());
+        publishers[prefix + topic].publish(msg);
     }
 
     ros::NodeHandle nh;
     boost::asio::io_service io_service;
     tcp::acceptor acceptor;
+    std::map<std::string, ros::Publisher> publishers;
 };
 
 int main(int argc, char** argv) {
@@ -243,6 +260,12 @@ int main(int argc, char** argv) {
 
     ServerNode server_node(ip, port);
     server_node.run();
+
+    ros::Rate loop_rate(10); // 10 Hz
+    while (ros::ok()) {
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
     return 0;
 }
