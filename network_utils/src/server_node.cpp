@@ -66,11 +66,11 @@ private:
                 if (path_data.ParseFromArray(inbound_data.data(), data_length)) {
                     ROS_INFO("Received PathData");
                     handlePathData(path_data);
-                } else if (odom_data.ParseFromArray(inbound_data.data(), data_length)) {
+                }
+                
+                if (odom_data.ParseFromArray(inbound_data.data(), data_length)) {
                     ROS_INFO("Received OdometryData");
                     handleOdometryData(odom_data);
-                } else {
-                    ROS_ERROR("Failed to parse received data");
                 }
             }
         } catch (boost::system::system_error& e) {
