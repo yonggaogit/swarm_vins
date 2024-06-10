@@ -54,7 +54,7 @@ public:
 
     void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
         geometry_msgs::Point position = msg->pose.pose.position;
-        modifyYCoordinate(position.y);
+        position.y += modifyYCoordinate();
         sendOdometryData(GLOBAL_ODOMETRY, msg->header.stamp, position, msg->pose.pose.orientation);
     }
 
@@ -62,7 +62,7 @@ public:
         if (!msg->poses.empty()) {
             nav_msgs::Path path_msg = *msg;
             for (auto& pose : path_msg.poses) {
-                modifyYCoordinate(pose.pose.position.y);
+                pose.pose.position.y += modifyYCoordinate();
             }
             sendPathData(GLOBAL_PATH, path_msg);
         } else {
@@ -71,10 +71,8 @@ public:
     }
 
 private:
-    void modifyYCoordinate(double& y) {
-        if (drone_id > 1) {
-            y += (drone_id - 1) * offset_multiplier;
-        }
+    double modifyYCoordinate() {
+        return (drone_id - 1) * offset_multiplier;
     }
 
     void sendOdometryData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
