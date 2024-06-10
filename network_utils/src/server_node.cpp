@@ -63,10 +63,12 @@ private:
                 drone::OdometryData odom_data;
                 drone::PathData path_data;
 
-                if (odom_data.ParseFromArray(inbound_data.data(), data_length)) {
-                    handleOdometryData(odom_data);
-                } else if (path_data.ParseFromArray(inbound_data.data(), data_length)) {
+                if (path_data.ParseFromArray(inbound_data.data(), data_length)) {
+                    ROS_INFO("Received PathData");
                     handlePathData(path_data);
+                } else if (odom_data.ParseFromArray(inbound_data.data(), data_length)) {
+                    ROS_INFO("Received OdometryData");
+                    handleOdometryData(odom_data);
                 } else {
                     ROS_ERROR("Failed to parse received data");
                 }
@@ -80,6 +82,7 @@ private:
     void handleOdometryData(const drone::OdometryData& odom_data) {
         nav_msgs::Odometry odom_msg;
         odom_msg.header.stamp = ros::Time(odom_data.timestamp_sec(), odom_data.timestamp_nsec());
+        odom_msg.header.frame_id = "world";
         odom_msg.pose.pose.position.x = odom_data.pose().x();
         odom_msg.pose.pose.position.y = odom_data.pose().y();
         odom_msg.pose.pose.position.z = odom_data.pose().z();
@@ -107,39 +110,43 @@ private:
     }
 
     void handlePathData(const drone::PathData& path_data) {
-        nav_msgs::Path path_msg;
-        path_msg.header.stamp = ros::Time(path_data.timestamp_sec(), path_data.timestamp_nsec());
-        path_msg.header.frame_id = "world"; // 设置适当的frame_id
+        if (path_data.poses_size() > 0) {
+            nav_msgs::Path path_msg;
+            path_msg.header.stamp = ros::Time(path_data.timestamp_sec(), path_data.timestamp_nsec());
+            path_msg.header.frame_id = "world"; // 设置适当的frame_id
 
-        for (int i = 0; i < path_data.poses_size(); ++i) {
-            geometry_msgs::PoseStamped pose_stamped;
-            pose_stamped.header.frame_id = "world"; // 设置适当的frame_id
-            pose_stamped.pose.position.x = path_data.poses(i).x();
-            pose_stamped.pose.position.y = path_data.poses(i).y();
-            pose_stamped.pose.position.z = path_data.poses(i).z();
-            pose_stamped.pose.orientation.x = path_data.poses(i).qx();
-            pose_stamped.pose.orientation.y = path_data.poses(i).qy();
-            pose_stamped.pose.orientation.z = path_data.poses(i).qz();
-            pose_stamped.pose.orientation.w = path_data.poses(i).qw();
-            path_msg.poses.push_back(pose_stamped);
+            for (int i = 0; i < path_data.poses_size(); ++i) {
+                geometry_msgs::PoseStamped pose_stamped;
+                pose_stamped.header.frame_id = "world"; // 设置适当的frame_id
+                pose_stamped.pose.position.x = path_data.poses(i).x();
+                pose_stamped.pose.position.y = path_data.poses(i).y();
+                pose_stamped.pose.position.z = path_data.poses(i).z();
+                pose_stamped.pose.orientation.x = path_data.poses(i).qx();
+                pose_stamped.pose.orientation.y = path_data.poses(i).qy();
+                pose_stamped.pose.orientation.z = path_data.poses(i).qz();
+                pose_stamped.pose.orientation.w = path_data.poses(i).qw();
+                path_msg.poses.push_back(pose_stamped);
+            }
+
+            std::string topic_name;
+            switch (path_data.type()) {
+                case drone::PathData::VINS_PATH:
+                    topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/vins_fusion/path";
+                    break;
+                case drone::PathData::GLOBAL_PATH:
+                    topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/ranging_fusion/global_path";
+                    break;
+                default:
+                    ROS_ERROR("Unknown PathData type: %d", path_data.type());
+                    return;
+            }
+
+            ros::Publisher path_pub = getPublisher<nav_msgs::Path>(topic_name);
+            path_pub.publish(path_msg);
+            ROS_INFO("Published PathData to %s", topic_name.c_str());
+        } else {
+            ROS_WARN("Received empty PathData");
         }
-
-        std::string topic_name;
-        switch (path_data.type()) {
-            case drone::PathData::VINS_PATH:
-                topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/vins_fusion/path";
-                break;
-            case drone::PathData::GLOBAL_PATH:
-                topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/ranging_fusion/global_path";
-                break;
-            default:
-                ROS_ERROR("Unknown PathData type: %d", path_data.type());
-                return;
-        }
-
-        ros::Publisher path_pub = getPublisher<nav_msgs::Path>(topic_name);
-        path_pub.publish(path_msg);
-        ROS_INFO("Published PathData to %s", topic_name.c_str());
     }
 
     template <typename T>

@@ -44,7 +44,12 @@ public:
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        sendPathData(VINS_PATH, *msg);
+        if (!msg->poses.empty()) {
+            nav_msgs::Path path_msg = *msg;
+            sendPathData(VINS_PATH, path_msg);
+        } else {
+            ROS_WARN("Received empty Path message");
+        }
     }
 
     void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -54,11 +59,15 @@ public:
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        nav_msgs::Path modified_msg = *msg;
-        for (auto& pose : modified_msg.poses) {
-            modifyYCoordinate(pose.pose.position.y);
+        if (!msg->poses.empty()) {
+            nav_msgs::Path path_msg = *msg;
+            for (auto& pose : path_msg.poses) {
+                modifyYCoordinate(pose.pose.position.y);
+            }
+            sendPathData(GLOBAL_PATH, path_msg);
+        } else {
+            ROS_WARN("Received empty Global Path message");
         }
-        sendPathData(GLOBAL_PATH, modified_msg);
     }
 
 private:
@@ -118,7 +127,10 @@ private:
             }
 
             std::string outbound_data;
-            path_data.SerializeToString(&outbound_data);
+            if (!path_data.SerializeToString(&outbound_data)) {
+                ROS_ERROR("Failed to serialize PathData");
+                return;
+            }
 
             uint32_t data_length = outbound_data.size();
             boost::asio::write(socket, boost::asio::buffer(&data_length, sizeof(data_length)));
