@@ -42,9 +42,7 @@ public:
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        for (const auto& pose : msg->poses) {
-            sendData(VINS_PATH, pose.header.stamp, pose.pose.position, pose.pose.orientation);
-        }
+        sendPathData(VINS_PATH, *msg);
     }
 
     void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
@@ -54,11 +52,11 @@ public:
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        for (auto& pose : msg->poses) {
-            geometry_msgs::Point position = pose.pose.position;
-            modifyYCoordinate(position.y);
-            sendData(GLOBAL_PATH, pose.header.stamp, position, pose.pose.orientation);
+        nav_msgs::Path modified_msg = *msg;
+        for (auto& pose : modified_msg.poses) {
+            modifyYCoordinate(pose.pose.position.y);
         }
+        sendPathData(GLOBAL_PATH, modified_msg);
     }
 
 private:
@@ -91,6 +89,37 @@ private:
             ROS_INFO("Sent data of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send data: %s", e.what());
+        }
+    }
+
+    void sendPathData(MessageType type, const nav_msgs::Path& path_msg) {
+        try {
+            std::ostringstream oss;
+            oss << drone_id << "|" << path_msg.header.stamp.sec << "|" << path_msg.header.stamp.nsec << "|" << type;
+
+            for (const auto& pose : path_msg.poses) {
+                oss << "|" << pose.header.stamp.sec << "|" << pose.header.stamp.nsec
+                    << "|" << pose.pose.position.x << "|" << pose.pose.position.y << "|" << pose.pose.position.z
+                    << "|" << pose.pose.orientation.x << "|" << pose.pose.orientation.y << "|" << pose.pose.orientation.z << "|" << pose.pose.orientation.w;
+            }
+            oss << "\n";
+
+            std::string outbound_data = oss.str();
+            
+            uint32_t data_length = outbound_data.size();
+            std::ostringstream length_stream;
+            length_stream.write(reinterpret_cast<const char*>(&data_length), sizeof(data_length));
+            std::string length_data = length_stream.str();
+
+            std::vector<boost::asio::const_buffer> buffers;
+            buffers.push_back(boost::asio::buffer(length_data));
+            buffers.push_back(boost::asio::buffer(outbound_data));
+
+            ROS_INFO("Sending path data: %s", outbound_data.c_str());  // Add log for debugging
+            boost::asio::write(socket, buffers);
+            ROS_INFO("Sent path data of type %d", type);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to send path data: %s", e.what());
         }
     }
 

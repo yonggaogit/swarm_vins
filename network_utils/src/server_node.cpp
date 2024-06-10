@@ -67,69 +67,12 @@ private:
                     tokens.push_back(token);
                 }
 
-                if (tokens.size() != 12) {
-                    ROS_ERROR("Invalid data format: %s", line.c_str());  // Add log for debugging
-                    continue;
-                }
-
-                int drone_id = std::stoi(tokens[0]);
-                unsigned int sec = std::stoul(tokens[1]);
-                unsigned int nsec = std::stoul(tokens[2]);
                 int type = std::stoi(tokens[3]);
-                geometry_msgs::Point position;
-                position.x = std::stod(tokens[4]);
-                position.y = std::stod(tokens[5]);
-                position.z = std::stod(tokens[6]);
-                geometry_msgs::Quaternion orientation;
-                orientation.x = std::stod(tokens[7]);
-                orientation.y = std::stod(tokens[8]);
-                orientation.z = std::stod(tokens[9]);
-                orientation.w = std::stod(tokens[10]);
 
-                ros::Time timestamp(sec, nsec);
-
-                ROS_INFO("Received data from drone %d, timestamp: %u.%u, message type: %d", drone_id, sec, nsec, type);
-
-                switch (type) {
-                    case IMU_PROPAGATE: {
-                        nav_msgs::Odometry msg;
-                        msg.header.stamp = timestamp;
-                        msg.pose.pose.position = position;
-                        msg.pose.pose.orientation = orientation;
-                        processAndPublish(drone_id, "/vins_fusion/imu_propagate", msg);
-                        break;
-                    }
-                    case VINS_PATH: {
-                        nav_msgs::Path msg;
-                        geometry_msgs::PoseStamped pose_stamped;
-                        pose_stamped.header.stamp = timestamp;
-                        pose_stamped.pose.position = position;
-                        pose_stamped.pose.orientation = orientation;
-                        msg.poses.push_back(pose_stamped);
-                        processAndPublish(drone_id, "/vins_fusion/path", msg);
-                        break;
-                    }
-                    case GLOBAL_ODOMETRY: {
-                        nav_msgs::Odometry msg;
-                        msg.header.stamp = timestamp;
-                        msg.pose.pose.position = position;
-                        msg.pose.pose.orientation = orientation;
-                        processAndPublish(drone_id, "/ranging_fusion/global_odometry", msg);
-                        break;
-                    }
-                    case GLOBAL_PATH: {
-                        nav_msgs::Path msg;
-                        geometry_msgs::PoseStamped pose_stamped;
-                        pose_stamped.header.stamp = timestamp;
-                        pose_stamped.pose.position = position;
-                        pose_stamped.pose.orientation = orientation;
-                        msg.poses.push_back(pose_stamped);
-                        processAndPublish(drone_id, "/ranging_fusion/global_path", msg);
-                        break;
-                    }
-                    default:
-                        ROS_ERROR("Unknown message type: %d", type);
-                        break;
+                if (type == VINS_PATH || type == GLOBAL_PATH) {
+                    handlePathData(tokens);
+                } else {
+                    handleData(tokens);
                 }
             }
         } catch (std::exception& e) {
@@ -138,6 +81,105 @@ private:
             ROS_ERROR("Unknown error occurred while handling client");
         }
         delete socket;
+    }
+
+    void handleData(const std::vector<std::string>& tokens) {
+        if (tokens.size() != 11) {
+            ROS_ERROR("Invalid data format: %s", joinTokens(tokens).c_str());
+            return;
+        }
+
+        int drone_id = std::stoi(tokens[0]);
+        unsigned int sec = std::stoul(tokens[1]);
+        unsigned int nsec = std::stoul(tokens[2]);
+        int type = std::stoi(tokens[3]);
+        geometry_msgs::Point position;
+        position.x = std::stod(tokens[4]);
+        position.y = std::stod(tokens[5]);
+        position.z = std::stod(tokens[6]);
+        geometry_msgs::Quaternion orientation;
+        orientation.x = std::stod(tokens[7]);
+        orientation.y = std::stod(tokens[8]);
+        orientation.z = std::stod(tokens[9]);
+        orientation.w = std::stod(tokens[10]);
+
+        ros::Time timestamp(sec, nsec);
+
+        ROS_INFO("Received data from drone %d, timestamp: %u.%u, message type: %d", drone_id, sec, nsec, type);
+
+        switch (type) {
+            case IMU_PROPAGATE: {
+                nav_msgs::Odometry msg;
+                msg.header.stamp = timestamp;
+                msg.pose.pose.position = position;
+                msg.pose.pose.orientation = orientation;
+                processAndPublish(drone_id, "/vins_fusion/imu_propagate", msg);
+                break;
+            }
+            case GLOBAL_ODOMETRY: {
+                nav_msgs::Odometry msg;
+                msg.header.stamp = timestamp;
+                msg.pose.pose.position = position;
+                msg.pose.pose.orientation = orientation;
+                processAndPublish(drone_id, "/ranging_fusion/global_odometry", msg);
+                break;
+            }
+            default:
+                ROS_ERROR("Unknown message type: %d", type);
+                break;
+        }
+    }
+
+    void handlePathData(const std::vector<std::string>& tokens) {
+        int drone_id = std::stoi(tokens[0]);
+        unsigned int sec = std::stoul(tokens[1]);
+        unsigned int nsec = std::stoul(tokens[2]);
+        int type = std::stoi(tokens[3]);
+
+        ros::Time timestamp(sec, nsec);
+
+        nav_msgs::Path msg;
+        msg.header.stamp = timestamp;
+
+        for (size_t i = 4; i < tokens.size(); i += 11) {
+            geometry_msgs::PoseStamped pose_stamped;
+            pose_stamped.header.stamp.sec = std::stoul(tokens[i]);
+            pose_stamped.header.stamp.nsec = std::stoul(tokens[i + 1]);
+            pose_stamped.pose.position.x = std::stod(tokens[i + 2]);
+            pose_stamped.pose.position.y = std::stod(tokens[i + 3]);
+            pose_stamped.pose.position.z = std::stod(tokens[i + 4]);
+            pose_stamped.pose.orientation.x = std::stod(tokens[i + 5]);
+            pose_stamped.pose.orientation.y = std::stod(tokens[i + 6]);
+            pose_stamped.pose.orientation.z = std::stod(tokens[i + 7]);
+            pose_stamped.pose.orientation.w = std::stod(tokens[i + 8]);
+            msg.poses.push_back(pose_stamped);
+        }
+
+        ROS_INFO("Received path data from drone %d, message type: %d", drone_id, type);
+
+        switch (type) {
+            case VINS_PATH:
+                processAndPublish(drone_id, "/vins_fusion/path", msg);
+                break;
+            case GLOBAL_PATH:
+                processAndPublish(drone_id, "/ranging_fusion/global_path", msg);
+                break;
+            default:
+                ROS_ERROR("Unknown message type: %d", type);
+                break;
+        }
+    }
+
+    std::string joinTokens(const std::vector<std::string>& tokens) {
+        std::ostringstream oss;
+        for (const auto& token : tokens) {
+            oss << token << "|";
+        }
+        std::string result = oss.str();
+        if (!result.empty()) {
+            result.pop_back();  // Remove the last '|'
+        }
+        return result;
     }
 
     template <typename T>
