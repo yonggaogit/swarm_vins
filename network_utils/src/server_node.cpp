@@ -177,7 +177,11 @@ int main(int argc, char** argv) {
 
     boost::thread server_thread(boost::bind(&ServerNode::run, &server_node));
 
-    ros::spin();
+    ros::Rate loop_rate(10); // 10 Hz
+    while (ros::ok()) {
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
     server_thread.join();
 

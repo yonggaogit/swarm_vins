@@ -38,7 +38,6 @@ private:
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        std::cout << "=================================VINS Path===========================" << std::endl;
         drone::PathData path_data;
         path_data.set_type(drone::PathData::VINS_PATH);
         path_data.set_drone_id(drone_id);
@@ -48,7 +47,7 @@ private:
         for (const auto& pose_stamped : msg->poses) {
             setPose(path_data.add_poses(), pose_stamped.pose);
         }
-
+        std::cout << "=================================Send VINS Path===========================" << std::endl;
         sendProtobufData(path_data);
     }
 
