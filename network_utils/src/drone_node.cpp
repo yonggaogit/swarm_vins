@@ -119,8 +119,8 @@ int main(int argc, char** argv) {
     int port;
     int drone_id;
 
-    nh.param("ip", ip, std::string("127.0.0.1"));
-    nh.param("port", port, 9000);
+    nh.param("server_ip", ip, std::string("127.0.0.1"));
+    nh.param("server_port", port, 9000);
     nh.param("drone_id", drone_id, 1);
 
     DroneNode drone_node(ip, port, drone_id);
