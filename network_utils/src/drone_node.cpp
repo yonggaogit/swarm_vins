@@ -2,129 +2,159 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <boost/asio.hpp>
+#include <boost/bind.hpp>
 #include <iostream>
 #include <sstream>
-#include "messages.pb.h"  // Include the generated protobuf header
+#include <iomanip>
+#include <google/protobuf/util/time_util.h>
+#include "messages.pb.h"
 
 using boost::asio::ip::tcp;
 
+enum MessageType {
+    IMU_PROPAGATE,
+    VINS_PATH,
+    GLOBAL_ODOMETRY,
+    GLOBAL_PATH
+};
+
 class DroneNode {
 public:
-    DroneNode(const std::string& ip, int port, int drone_id)
-        : socket(io_service), endpoint(boost::asio::ip::address::from_string(ip), port), drone_id(drone_id) {
-        socket.connect(endpoint);
-        ROS_INFO("Connected to server at %s:%d", ip.c_str(), port);
+    DroneNode(int id, const std::string& server_ip, int server_port, double offset_multiplier)
+        : drone_id(id), io_service(), socket(io_service), offset_multiplier(offset_multiplier) {
+        try {
+            tcp::resolver resolver(io_service);
+            tcp::resolver::query query(server_ip, std::to_string(server_port));
+            tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+            boost::asio::connect(socket, endpoint_iterator);
+            ROS_INFO("Connected to server %s:%d", server_ip.c_str(), server_port);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to connect to server: %s", e.what());
+            ros::shutdown();
+        }
 
         imu_sub = nh.subscribe("/vins_fusion/imu_propagate", 10, &DroneNode::imuCallback, this);
         path_sub = nh.subscribe("/vins_fusion/path", 10, &DroneNode::pathCallback, this);
-        global_odom_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdomCallback, this);
+        global_odometry_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdometryCallback, this);
         global_path_sub = nh.subscribe("/ranging_fusion/global_path", 10, &DroneNode::globalPathCallback, this);
     }
 
-    void run() {
-        ros::spin();
-    }
-
-private:
     void imuCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-        drone::OdometryData odometry_data;
-        odometry_data.set_type(drone::OdometryData::IMU_PROPAGATE);
-        odometry_data.set_drone_id(drone_id);
-        odometry_data.set_timestamp_sec(msg->header.stamp.sec);
-        odometry_data.set_timestamp_nsec(msg->header.stamp.nsec);
-        setPose(odometry_data.mutable_pose(), msg->pose.pose);
-
-        sendProtobufData(odometry_data);
+        sendOdometryData(IMU_PROPAGATE, msg->header.stamp, msg->pose.pose.position, msg->pose.pose.orientation);
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        drone::PathData path_data;
-        path_data.set_type(drone::PathData::VINS_PATH);
-        path_data.set_drone_id(drone_id);
-        path_data.set_timestamp_sec(msg->header.stamp.sec);
-        path_data.set_timestamp_nsec(msg->header.stamp.nsec);
-
-        for (const auto& pose_stamped : msg->poses) {
-            setPose(path_data.add_poses(), pose_stamped.pose);
-        }
-        std::cout << "=================================Send VINS Path===========================" << std::endl;
-        sendProtobufData(path_data);
+        sendPathData(VINS_PATH, *msg);
     }
 
-    void globalOdomCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-        drone::OdometryData odometry_data;
-        odometry_data.set_type(drone::OdometryData::GLOBAL_ODOMETRY);
-        odometry_data.set_drone_id(drone_id);
-        odometry_data.set_timestamp_sec(msg->header.stamp.sec);
-        odometry_data.set_timestamp_nsec(msg->header.stamp.nsec);
-        setPose(odometry_data.mutable_pose(), msg->pose.pose);
-
-        sendProtobufData(odometry_data);
+    void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+        geometry_msgs::Point position = msg->pose.pose.position;
+        modifyYCoordinate(position.y);
+        sendOdometryData(GLOBAL_ODOMETRY, msg->header.stamp, position, msg->pose.pose.orientation);
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
-        drone::PathData path_data;
-        path_data.set_type(drone::PathData::GLOBAL_PATH);
-        path_data.set_drone_id(drone_id);
-        path_data.set_timestamp_sec(msg->header.stamp.sec);
-        path_data.set_timestamp_nsec(msg->header.stamp.nsec);
-
-        for (const auto& pose_stamped : msg->poses) {
-            setPose(path_data.add_poses(), pose_stamped.pose);
+        nav_msgs::Path modified_msg = *msg;
+        for (auto& pose : modified_msg.poses) {
+            modifyYCoordinate(pose.pose.position.y);
         }
-
-        sendProtobufData(path_data);
+        sendPathData(GLOBAL_PATH, modified_msg);
     }
 
-    void setPose(drone::Pose* proto_pose, const geometry_msgs::Pose& ros_pose) {
-        proto_pose->set_x(ros_pose.position.x);
-        proto_pose->set_y(ros_pose.position.y);
-        proto_pose->set_z(ros_pose.position.z);
-        proto_pose->set_qx(ros_pose.orientation.x);
-        proto_pose->set_qy(ros_pose.orientation.y);
-        proto_pose->set_qz(ros_pose.orientation.z);
-        proto_pose->set_qw(ros_pose.orientation.w);
+private:
+    void modifyYCoordinate(double& y) {
+        if (drone_id > 1) {
+            y += (drone_id - 1) * offset_multiplier;
+        }
     }
 
-    template <typename T>
-    void sendProtobufData(const T& protobuf_data) {
-        std::string serialized_data;
-        protobuf_data.SerializeToString(&serialized_data);
+    void sendOdometryData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
+        try {
+            drone::OdometryData odom_data;
+            odom_data.set_type(static_cast<drone::OdometryData::Type>(type));
+            odom_data.set_drone_id(drone_id);
+            odom_data.set_timestamp_sec(timestamp.sec);
+            odom_data.set_timestamp_nsec(timestamp.nsec);
 
-        uint32_t data_length = serialized_data.size();
-        std::vector<boost::asio::const_buffer> buffers;
-        buffers.push_back(boost::asio::buffer(&data_length, sizeof(data_length)));
-        buffers.push_back(boost::asio::buffer(serialized_data));
+            auto pose = odom_data.mutable_pose();
+            pose->set_x(position.x);
+            pose->set_y(position.y);
+            pose->set_z(position.z);
+            pose->set_qx(orientation.x);
+            pose->set_qy(orientation.y);
+            pose->set_qz(orientation.z);
+            pose->set_qw(orientation.w);
 
-        boost::asio::write(socket, buffers);
+            std::string outbound_data;
+            odom_data.SerializeToString(&outbound_data);
+
+            uint32_t data_length = outbound_data.size();
+            boost::asio::write(socket, boost::asio::buffer(&data_length, sizeof(data_length)));
+            boost::asio::write(socket, boost::asio::buffer(outbound_data));
+
+            ROS_INFO("Sent OdometryData of type %d", type);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to send data: %s", e.what());
+        }
+    }
+
+    void sendPathData(MessageType type, const nav_msgs::Path& path_msg) {
+        try {
+            drone::PathData path_data;
+            path_data.set_type(static_cast<drone::PathData::Type>(type));
+            path_data.set_drone_id(drone_id);
+            path_data.set_timestamp_sec(path_msg.header.stamp.sec);
+            path_data.set_timestamp_nsec(path_msg.header.stamp.nsec);
+
+            for (const auto& pose_stamped : path_msg.poses) {
+                auto pose = path_data.add_poses();
+                pose->set_x(pose_stamped.pose.position.x);
+                pose->set_y(pose_stamped.pose.position.y);
+                pose->set_z(pose_stamped.pose.position.z);
+                pose->set_qx(pose_stamped.pose.orientation.x);
+                pose->set_qy(pose_stamped.pose.orientation.y);
+                pose->set_qz(pose_stamped.pose.orientation.z);
+                pose->set_qw(pose_stamped.pose.orientation.w);
+            }
+
+            std::string outbound_data;
+            path_data.SerializeToString(&outbound_data);
+
+            uint32_t data_length = outbound_data.size();
+            boost::asio::write(socket, boost::asio::buffer(&data_length, sizeof(data_length)));
+            boost::asio::write(socket, boost::asio::buffer(outbound_data));
+
+            ROS_INFO("Sent PathData of type %d", type);
+        } catch (boost::system::system_error& e) {
+            ROS_ERROR("Failed to send path data: %s", e.what());
+        }
     }
 
     ros::NodeHandle nh;
-    ros::Subscriber imu_sub;
-    ros::Subscriber path_sub;
-    ros::Subscriber global_odom_sub;
-    ros::Subscriber global_path_sub;
-
+    int drone_id;
+    double offset_multiplier;
+    ros::Subscriber imu_sub, path_sub, global_odometry_sub, global_path_sub;
     boost::asio::io_service io_service;
     tcp::socket socket;
-    tcp::endpoint endpoint;
-    int drone_id;
 };
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "drone_node");
     ros::NodeHandle nh("~");
 
-    std::string ip;
-    int port;
     int drone_id;
+    std::string server_ip;
+    int server_port;
+    double offset_multiplier;
 
-    nh.param("server_ip", ip, std::string("127.0.0.1"));
-    nh.param("server_port", port, 9000);
     nh.param("drone_id", drone_id, 1);
+    nh.param("server_ip", server_ip, std::string("127.0.0.1"));
+    nh.param("server_port", server_port, 9000);
+    nh.param("offset_multiplier", offset_multiplier, 1.0);
 
-    DroneNode drone_node(ip, port, drone_id);
-    drone_node.run();
+    DroneNode drone_node(drone_id, server_ip, server_port, offset_multiplier);
+
+    ros::spin();
 
     return 0;
 }
