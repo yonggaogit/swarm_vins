@@ -76,6 +76,7 @@ private:
                 << position.x << "|" << position.y << "|" << position.z << "|"
                 << orientation.x << "|" << orientation.y << "|" << orientation.z << "|" << orientation.w << "\n";
             std::string outbound_data = oss.str();
+            ROS_INFO("Sending data: %s", outbound_data.c_str());  // Add log for debugging
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
             ROS_INFO("Sent data of type %d", type);
         } catch (boost::system::system_error& e) {

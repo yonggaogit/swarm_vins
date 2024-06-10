@@ -66,7 +66,7 @@ private:
                 }
 
                 if (tokens.size() != 12) {
-                    ROS_ERROR("Invalid data format");
+                    ROS_ERROR("Invalid data format: %s", line.c_str());  // Add log for debugging
                     continue;
                 }
 
