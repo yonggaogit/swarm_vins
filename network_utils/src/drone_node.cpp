@@ -72,9 +72,9 @@ private:
         try {
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(9)
-                << drone_id << " " << timestamp.sec << " " << timestamp.nsec << " " << type << " "
-                << position.x << " " << position.y << " " << position.z << " "
-                << orientation.x << " " << orientation.y << " " << orientation.z << " " << orientation.w << "\n";
+                << drone_id << "|" << timestamp.sec << "|" << timestamp.nsec << "|" << type << "|"
+                << position.x << "|" << position.y << "|" << position.z << "|"
+                << orientation.x << "|" << orientation.y << "|" << orientation.z << "|" << orientation.w << "\n";
             std::string outbound_data = oss.str();
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
             ROS_INFO("Sent data of type %d", type);

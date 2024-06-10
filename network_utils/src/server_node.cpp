@@ -5,6 +5,7 @@
 #include <boost/thread.hpp>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 using boost::asio::ip::tcp;
 
@@ -54,19 +55,34 @@ private:
                 boost::asio::streambuf buf;
                 boost::asio::read_until(*socket, buf, '\n');
                 std::istream is(&buf);
-                int drone_id, type;
-                unsigned int sec, nsec;
-                geometry_msgs::Point position;
-                geometry_msgs::Quaternion orientation;
+                std::string line;
+                std::getline(is, line);
 
-                is >> drone_id >> sec >> nsec >> type
-                   >> position.x >> position.y >> position.z
-                   >> orientation.x >> orientation.y >> orientation.z >> orientation.w;
+                std::istringstream iss(line);
+                std::string token;
+                std::vector<std::string> tokens;
+                while (std::getline(iss, token, '|')) {
+                    tokens.push_back(token);
+                }
 
-                if (is.fail()) {
-                    ROS_ERROR("Failed to parse data");
+                if (tokens.size() != 12) {
+                    ROS_ERROR("Invalid data format");
                     continue;
                 }
+
+                int drone_id = std::stoi(tokens[0]);
+                unsigned int sec = std::stoul(tokens[1]);
+                unsigned int nsec = std::stoul(tokens[2]);
+                int type = std::stoi(tokens[3]);
+                geometry_msgs::Point position;
+                position.x = std::stod(tokens[4]);
+                position.y = std::stod(tokens[5]);
+                position.z = std::stod(tokens[6]);
+                geometry_msgs::Quaternion orientation;
+                orientation.x = std::stod(tokens[7]);
+                orientation.y = std::stod(tokens[8]);
+                orientation.z = std::stod(tokens[9]);
+                orientation.w = std::stod(tokens[10]);
 
                 ros::Time timestamp(sec, nsec);
 
