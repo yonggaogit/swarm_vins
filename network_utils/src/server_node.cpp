@@ -52,11 +52,13 @@ private:
     void handleClient(tcp::socket* socket) {
         try {
             for (;;) {
-                boost::asio::streambuf buf;
-                boost::asio::read_until(*socket, buf, '\n');
-                std::istream is(&buf);
-                std::string line;
-                std::getline(is, line);
+                uint32_t data_length = 0;
+                boost::asio::read(*socket, boost::asio::buffer(&data_length, sizeof(data_length)));
+
+                std::vector<char> data(data_length);
+                boost::asio::read(*socket, boost::asio::buffer(data.data(), data_length));
+
+                std::string line(data.begin(), data.end());
 
                 std::istringstream iss(line);
                 std::string token;

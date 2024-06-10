@@ -76,8 +76,18 @@ private:
                 << position.x << "|" << position.y << "|" << position.z << "|"
                 << orientation.x << "|" << orientation.y << "|" << orientation.z << "|" << orientation.w << "\n";
             std::string outbound_data = oss.str();
+            
+            uint32_t data_length = outbound_data.size();
+            std::ostringstream length_stream;
+            length_stream.write(reinterpret_cast<const char*>(&data_length), sizeof(data_length));
+            std::string length_data = length_stream.str();
+
+            std::vector<boost::asio::const_buffer> buffers;
+            buffers.push_back(boost::asio::buffer(length_data));
+            buffers.push_back(boost::asio::buffer(outbound_data));
+
             ROS_INFO("Sending data: %s", outbound_data.c_str());  // Add log for debugging
-            boost::asio::write(socket, boost::asio::buffer(outbound_data));
+            boost::asio::write(socket, buffers);
             ROS_INFO("Sent data of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send data: %s", e.what());
