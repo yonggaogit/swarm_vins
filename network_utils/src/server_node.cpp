@@ -6,16 +6,10 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <zlib.h>
+#include <unordered_map>
+#include "messages.pb.h"  // Include the generated protobuf header
 
 using boost::asio::ip::tcp;
-
-enum MessageType {
-    IMU_PROPAGATE,
-    VINS_PATH,
-    GLOBAL_ODOMETRY,
-    GLOBAL_PATH
-};
 
 class ServerNode {
 public:
@@ -26,26 +20,18 @@ public:
     }
 
     void run() {
-        boost::thread_group threadpool;
-        for (std::size_t i = 0; i < boost::thread::hardware_concurrency(); ++i) {
-            threadpool.create_thread(boost::bind(&boost::asio::io_service::run, &io_service));
-        }
-        threadpool.join_all();
+        io_service.run();
     }
 
 private:
     void startAccept() {
-        tcp::socket* new_socket = new tcp::socket(io_service);
-        acceptor.async_accept(*new_socket, boost::bind(&ServerNode::handleAccept, this, new_socket, boost::asio::placeholders::error));
+        tcp::socket* socket = new tcp::socket(io_service);
+        acceptor.async_accept(*socket, boost::bind(&ServerNode::handleAccept, this, socket, boost::asio::placeholders::error));
     }
 
-    void handleAccept(tcp::socket* new_socket, const boost::system::error_code& error) {
+    void handleAccept(tcp::socket* socket, const boost::system::error_code& error) {
         if (!error) {
-            ROS_INFO("New client connected");
-            boost::thread(boost::bind(&ServerNode::handleClient, this, new_socket)).detach();
-        } else {
-            ROS_ERROR("Accept error: %s", error.message().c_str());
-            delete new_socket;
+            boost::thread(boost::bind(&ServerNode::handleClient, this, socket));
         }
         startAccept();
     }
@@ -55,35 +41,15 @@ private:
             for (;;) {
                 uint32_t data_length = 0;
                 boost::asio::read(*socket, boost::asio::buffer(&data_length, sizeof(data_length)));
-                if (data_length > 1000000) {  // Check for excessively large messages
-                    ROS_ERROR("Received excessively large data length: %u", data_length);
-                    continue;
-                }
-
                 std::vector<char> data(data_length);
                 boost::asio::read(*socket, boost::asio::buffer(data.data(), data_length));
 
-                std::string compressed_data(data.begin(), data.end());
-                std::string line = decompressString(compressed_data);
+                std::string serialized_data(data.begin(), data.end());
 
-                std::istringstream iss(line);
-                std::string token;
-                std::vector<std::string> tokens;
-                while (std::getline(iss, token, '|')) {
-                    tokens.push_back(token);
-                }
-
-                if (tokens.size() < 4) {
-                    ROS_ERROR("Invalid data format: %s", line.c_str());
-                    continue;
-                }
-
-                int type = std::stoi(tokens[3]);
-
-                if (type == VINS_PATH || type == GLOBAL_PATH) {
-                    handlePathData(tokens);
+                if (handleProtobufData(serialized_data)) {
+                    ROS_INFO("Processed protobuf data successfully");
                 } else {
-                    handleData(tokens);
+                    ROS_ERROR("Failed to process protobuf data");
                 }
             }
         } catch (std::exception& e) {
@@ -94,158 +60,106 @@ private:
         delete socket;
     }
 
-    void handleData(const std::vector<std::string>& tokens) {
-        if (tokens.size() != 11) {
-            ROS_ERROR("Invalid data format: %s", joinTokens(tokens).c_str());
-            return;
+    bool handleProtobufData(const std::string& serialized_data) {
+        if (serialized_data.size() < 4) {
+            ROS_ERROR("Invalid data format");
+            return false;
         }
 
-        int drone_id = std::stoi(tokens[0]);
-        unsigned int sec = std::stoul(tokens[1]);
-        unsigned int nsec = std::stoul(tokens[2]);
-        int type = std::stoi(tokens[3]);
-        geometry_msgs::Point position;
-        position.x = std::stod(tokens[4]);
-        position.y = std::stod(tokens[5]);
-        position.z = std::stod(tokens[6]);
-        geometry_msgs::Quaternion orientation;
-        orientation.x = std::stod(tokens[7]);
-        orientation.y = std::stod(tokens[8]);
-        orientation.z = std::stod(tokens[9]);
-        orientation.w = std::stod(tokens[10]);
+        drone::OdometryData odometry_data;
+        drone::PathData path_data;
 
-        ros::Time timestamp(sec, nsec);
-
-        ROS_INFO("Received data from drone %d, timestamp: %u.%u, message type: %d", drone_id, sec, nsec, type);
-
-        switch (type) {
-            case IMU_PROPAGATE: {
-                nav_msgs::Odometry msg;
-                msg.header.stamp = timestamp;
-                msg.header.frame_id = "world";
-                msg.pose.pose.position = position;
-                msg.pose.pose.orientation = orientation;
-                processAndPublish(drone_id, "/vins_fusion/imu_propagate", msg);
-                break;
-            }
-            case GLOBAL_ODOMETRY: {
-                nav_msgs::Odometry msg;
-                msg.header.stamp = timestamp;
-                msg.header.frame_id = "world";
-                msg.pose.pose.position = position;
-                msg.pose.pose.orientation = orientation;
-                processAndPublish(drone_id, "/ranging_fusion/global_odometry", msg);
-                break;
-            }
-            default:
-                ROS_ERROR("Unknown message type: %d", type);
-                break;
+        if (odometry_data.ParseFromString(serialized_data)) {
+            return handleOdometryData(odometry_data);
+        } else if (path_data.ParseFromString(serialized_data)) {
+            return handlePathData(path_data);
+        } else {
+            ROS_ERROR("Failed to parse protobuf data");
+            return false;
         }
     }
 
-    void handlePathData(const std::vector<std::string>& tokens) {
-        int drone_id = std::stoi(tokens[0]);
-        unsigned int sec = std::stoul(tokens[1]);
-        unsigned int nsec = std::stoul(tokens[2]);
-        int type = std::stoi(tokens[3]);
+    bool handleOdometryData(const drone::OdometryData& odometry_data) {
+        nav_msgs::Odometry msg;
+        msg.header.stamp.sec = odometry_data.timestamp_sec();
+        msg.header.stamp.nsec = odometry_data.timestamp_nsec();
+        msg.header.frame_id = "world";
+        
+        msg.pose.pose.position.x = odometry_data.pose().x();
+        msg.pose.pose.position.y = odometry_data.pose().y();
+        msg.pose.pose.position.z = odometry_data.pose().z();
+        msg.pose.pose.orientation.x = odometry_data.pose().qx();
+        msg.pose.pose.orientation.y = odometry_data.pose().qy();
+        msg.pose.pose.orientation.z = odometry_data.pose().qz();
+        msg.pose.pose.orientation.w = odometry_data.pose().qw();
 
-        ros::Time timestamp(sec, nsec);
+        std::string base_topic;
+        if (odometry_data.type() == drone::OdometryData::IMU_PROPAGATE) {
+            base_topic = "/vins_fusion/imu_propagate";
+        } else if (odometry_data.type() == drone::OdometryData::GLOBAL_ODOMETRY) {
+            base_topic = "/ranging_fusion/global_odometry";
+        } else {
+            ROS_ERROR("Unknown odometry type: %d", odometry_data.type());
+            return false;
+        }
 
+        std::string topic = "/drone_" + std::to_string(odometry_data.drone_id()) + base_topic;
+        getPublisher<nav_msgs::Odometry>(topic).publish(msg);
+
+        ROS_INFO("Published odometry data to %s", topic.c_str());
+        return true;
+    }
+
+    bool handlePathData(const drone::PathData& path_data) {
         nav_msgs::Path msg;
-        msg.header.stamp = timestamp;
+        msg.header.stamp.sec = path_data.timestamp_sec();
+        msg.header.stamp.nsec = path_data.timestamp_nsec();
         msg.header.frame_id = "world";
 
-        for (size_t i = 4; i + 10 < tokens.size(); i += 11) {  // Ensure no out-of-bounds access
+        for (const auto& pose : path_data.poses()) {
             geometry_msgs::PoseStamped pose_stamped;
             pose_stamped.header.frame_id = "world";
-            pose_stamped.header.stamp.sec = std::stoul(tokens[i]);
-            pose_stamped.header.stamp.nsec = std::stoul(tokens[i + 1]);
-            pose_stamped.pose.position.x = std::stod(tokens[i + 2]);
-            pose_stamped.pose.position.y = std::stod(tokens[i + 3]);
-            pose_stamped.pose.position.z = std::stod(tokens[i + 4]);
-            pose_stamped.pose.orientation.x = std::stod(tokens[i + 5]);
-            pose_stamped.pose.orientation.y = std::stod(tokens[i + 6]);
-            pose_stamped.pose.orientation.z = std::stod(tokens[i + 7]);
-            pose_stamped.pose.orientation.w = std::stod(tokens[i + 8]);
+            pose_stamped.pose.position.x = pose.x();
+            pose_stamped.pose.position.y = pose.y();
+            pose_stamped.pose.position.z = pose.z();
+            pose_stamped.pose.orientation.x = pose.qx();
+            pose_stamped.pose.orientation.y = pose.qy();
+            pose_stamped.pose.orientation.z = pose.qz();
+            pose_stamped.pose.orientation.w = pose.qw();
             msg.poses.push_back(pose_stamped);
         }
 
-        ROS_INFO("Received path data from drone %d, message type: %d", drone_id, type);
-
-        switch (type) {
-            case VINS_PATH:
-                processAndPublish(drone_id, "/vins_fusion/path", msg);
-                break;
-            case GLOBAL_PATH:
-                processAndPublish(drone_id, "/ranging_fusion/global_path", msg);
-                break;
-            default:
-                ROS_ERROR("Unknown message type: %d", type);
-                break;
+        std::string base_topic;
+        if (path_data.type() == drone::PathData::VINS_PATH) {
+            base_topic = "/vins_fusion/path";
+        } else if (path_data.type() == drone::PathData::GLOBAL_PATH) {
+            base_topic = "/ranging_fusion/global_path";
+        } else {
+            ROS_ERROR("Unknown path type: %d", path_data.type());
+            return false;
         }
+
+        std::string topic = "/drone_" + std::to_string(path_data.drone_id()) + base_topic;
+        getPublisher<nav_msgs::Path>(topic).publish(msg);
+
+        ROS_INFO("Published path data to %s", topic.c_str());
+        return true;
     }
 
-    std::string joinTokens(const std::vector<std::string>& tokens) {
-        std::ostringstream oss;
-        for (const auto& token : tokens) {
-            oss << token << "|";
+    template<typename T>
+    ros::Publisher& getPublisher(const std::string& topic) {
+        auto it = publishers.find(topic);
+        if (it == publishers.end()) {
+            ros::Publisher pub = nh.advertise<T>(topic, 10);
+            it = publishers.emplace(topic, pub).first;
         }
-        std::string result = oss.str();
-        if (!result.empty()) {
-            result.pop_back();  // Remove the last '|'
-        }
-        return result;
-    }
-
-    std::string decompressString(const std::string& str) {
-        z_stream zs;
-        memset(&zs, 0, sizeof(zs));
-
-        if (inflateInit(&zs) != Z_OK) {
-            throw std::runtime_error("inflateInit failed while decompressing.");
-        }
-
-        zs.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(str.data()));
-        zs.avail_in = str.size();
-
-        int ret;
-        char outbuffer[32768];
-        std::string outstring;
-
-        do {
-            zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
-            zs.avail_out = sizeof(outbuffer);
-
-            ret = inflate(&zs, 0);
-
-            if (outstring.size() < zs.total_out) {
-                outstring.append(outbuffer, zs.total_out - outstring.size());
-            }
-        } while (ret == Z_OK);
-
-        inflateEnd(&zs);
-
-        if (ret != Z_STREAM_END) {
-            throw std::runtime_error("inflate failed while decompressing.");
-        }
-
-        return outstring;
-    }
-
-    template <typename T>
-    void processAndPublish(int drone_id, const std::string& topic, const T& msg) {
-        std::string prefix = "/drone_" + std::to_string(drone_id);
-        if (publishers.find(prefix + topic) == publishers.end()) {
-            publishers[prefix + topic] = nh.advertise<T>(prefix + topic, 10);
-        }
-        ROS_INFO("Publishing to %s", (prefix + topic).c_str());
-        publishers[prefix + topic].publish(msg);
+        return it->second;
     }
 
     ros::NodeHandle nh;
     boost::asio::io_service io_service;
     tcp::acceptor acceptor;
-    std::map<std::string, ros::Publisher> publishers;
+    std::unordered_map<std::string, ros::Publisher> publishers;
 };
 
 int main(int argc, char** argv) {
@@ -255,17 +169,16 @@ int main(int argc, char** argv) {
     std::string ip;
     int port;
 
-    nh.param("server_ip", ip, std::string("127.0.0.1"));
-    nh.param("server_port", port, 9000);
+    nh.param("ip", ip, std::string("127.0.0.1"));
+    nh.param("port", port, 9000);
 
     ServerNode server_node(ip, port);
-    server_node.run();
 
-    ros::Rate loop_rate(10); // 10 Hz
-    while (ros::ok()) {
-        ros::spinOnce();
-        loop_rate.sleep();
-    }
+    boost::thread server_thread(boost::bind(&ServerNode::run, &server_node));
+
+    ros::spin();
+
+    server_thread.join();
 
     return 0;
 }

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package drone;
+
+message Pose {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+    double qx = 4;
+    double qy = 5;
+    double qz = 6;
+    double qw = 7;
+}
+
+message OdometryData {
+    enum Type {
+        IMU_PROPAGATE = 0;
+        GLOBAL_ODOMETRY = 1;
+    }
+    
+    Type type = 1;
+    int32 drone_id = 2;
+    int64 timestamp_sec = 3;
+    int64 timestamp_nsec = 4;
+    Pose pose = 5;
+}
+
+message PathData {
+    enum Type {
+        VINS_PATH = 0;
+        GLOBAL_PATH = 1;
+    }
+    
+    Type type = 1;
+    int32 drone_id = 2;
+    int64 timestamp_sec = 3;
+    int64 timestamp_nsec = 4;
+    repeated Pose poses = 5;
+}
