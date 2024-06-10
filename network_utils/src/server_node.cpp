@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <zlib.h>
 
 using boost::asio::ip::tcp;
 
@@ -58,7 +59,8 @@ private:
                 std::vector<char> data(data_length);
                 boost::asio::read(*socket, boost::asio::buffer(data.data(), data_length));
 
-                std::string line(data.begin(), data.end());
+                std::string compressed_data(data.begin(), data.end());
+                std::string line = decompressString(compressed_data);
 
                 std::istringstream iss(line);
                 std::string token;
@@ -180,6 +182,41 @@ private:
             result.pop_back();  // Remove the last '|'
         }
         return result;
+    }
+
+    std::string decompressString(const std::string& str) {
+        z_stream zs;
+        memset(&zs, 0, sizeof(zs));
+
+        if (inflateInit(&zs) != Z_OK) {
+            throw std::runtime_error("inflateInit failed while decompressing.");
+        }
+
+        zs.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(str.data()));
+        zs.avail_in = str.size();
+
+        int ret;
+        char outbuffer[32768];
+        std::string outstring;
+
+        do {
+            zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+            zs.avail_out = sizeof(outbuffer);
+
+            ret = inflate(&zs, 0);
+
+            if (outstring.size() < zs.total_out) {
+                outstring.append(outbuffer, zs.total_out - outstring.size());
+            }
+        } while (ret == Z_OK);
+
+        inflateEnd(&zs);
+
+        if (ret != Z_STREAM_END) {
+            throw std::runtime_error("inflate failed while decompressing.");
+        }
+
+        return outstring;
     }
 
     template <typename T>

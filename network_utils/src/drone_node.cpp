@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <zlib.h>
 
 using boost::asio::ip::tcp;
 
@@ -66,6 +67,41 @@ private:
         }
     }
 
+    std::string compressString(const std::string& str) {
+        z_stream zs;
+        memset(&zs, 0, sizeof(zs));
+
+        if (deflateInit(&zs, Z_BEST_COMPRESSION) != Z_OK) {
+            throw std::runtime_error("deflateInit failed while compressing.");
+        }
+
+        zs.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(str.data()));
+        zs.avail_in = str.size();
+
+        int ret;
+        char outbuffer[32768];
+        std::string outstring;
+
+        do {
+            zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+            zs.avail_out = sizeof(outbuffer);
+
+            ret = deflate(&zs, Z_FINISH);
+
+            if (outstring.size() < zs.total_out) {
+                outstring.append(outbuffer, zs.total_out - outstring.size());
+            }
+        } while (ret == Z_OK);
+
+        deflateEnd(&zs);
+
+        if (ret != Z_STREAM_END) {
+            throw std::runtime_error("deflate failed while compressing.");
+        }
+
+        return outstring;
+    }
+
     void sendData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
         try {
             std::ostringstream oss;
@@ -73,7 +109,7 @@ private:
                 << drone_id << "|" << timestamp.sec << "|" << timestamp.nsec << "|" << type << "|"
                 << position.x << "|" << position.y << "|" << position.z << "|"
                 << orientation.x << "|" << orientation.y << "|" << orientation.z << "|" << orientation.w << "\n";
-            std::string outbound_data = oss.str();
+            std::string outbound_data = compressString(oss.str());
             
             uint32_t data_length = outbound_data.size();
             std::ostringstream length_stream;
@@ -84,9 +120,9 @@ private:
             buffers.push_back(boost::asio::buffer(length_data));
             buffers.push_back(boost::asio::buffer(outbound_data));
 
-            ROS_INFO("Sending data: %s", outbound_data.c_str());  // Add log for debugging
+            ROS_INFO("Sending compressed data");
             boost::asio::write(socket, buffers);
-            ROS_INFO("Sent data of type %d", type);
+            ROS_INFO("Sent compressed data of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send data: %s", e.what());
         }
@@ -104,7 +140,7 @@ private:
             }
             oss << "\n";
 
-            std::string outbound_data = oss.str();
+            std::string outbound_data = compressString(oss.str());
             
             uint32_t data_length = outbound_data.size();
             std::ostringstream length_stream;
@@ -115,9 +151,9 @@ private:
             buffers.push_back(boost::asio::buffer(length_data));
             buffers.push_back(boost::asio::buffer(outbound_data));
 
-            ROS_INFO("Sending path data: %s", outbound_data.c_str());  // Add log for debugging
+            ROS_INFO("Sending compressed path data");
             boost::asio::write(socket, buffers);
-            ROS_INFO("Sent path data of type %d", type);
+            ROS_INFO("Sent compressed path data of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send path data: %s", e.what());
         }
