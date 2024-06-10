@@ -38,6 +38,7 @@ private:
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
+        std::cout << "=================================VINS Path===========================" << std::endl;
         drone::PathData path_data;
         path_data.set_type(drone::PathData::VINS_PATH);
         path_data.set_drone_id(drone_id);

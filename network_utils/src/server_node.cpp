@@ -111,6 +111,7 @@ private:
     }
 
     bool handlePathData(const drone::PathData& path_data) {
+        std::cout << "=====================Handle Path Topic=====================" << std::endl;
         nav_msgs::Path msg;
         msg.header.stamp.sec = path_data.timestamp_sec();
         msg.header.stamp.nsec = path_data.timestamp_nsec();
