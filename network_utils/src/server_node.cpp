@@ -64,12 +64,12 @@ private:
                 drone::PathData path_data;
 
                 if (path_data.ParseFromArray(inbound_data.data(), data_length)) {
-                    ROS_INFO("Received PathData");
+                    // ROS_INFO("Received PathData");
                     handlePathData(path_data);
                 }
                 
                 if (odom_data.ParseFromArray(inbound_data.data(), data_length)) {
-                    ROS_INFO("Received OdometryData");
+                    // ROS_INFO("Received OdometryData");
                     handleOdometryData(odom_data);
                 }
             }
@@ -106,7 +106,7 @@ private:
 
         ros::Publisher odom_pub = getPublisher<nav_msgs::Odometry>(topic_name);
         odom_pub.publish(odom_msg);
-        ROS_INFO("Published OdometryData to %s", topic_name.c_str());
+        // ROS_INFO("Published OdometryData to %s", topic_name.c_str());
     }
 
     void handlePathData(const drone::PathData& path_data) {
@@ -127,14 +127,16 @@ private:
                 pose_stamped.pose.orientation.w = path_data.poses(i).qw();
                 path_msg.poses.push_back(pose_stamped);
             }
-
+            std::cout << "==========================" << path_data.type() << "," << drone::PathData::VINS_PATH << std::endl;
             std::string topic_name;
             switch (path_data.type()) {
                 case drone::PathData::VINS_PATH:
                     topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/vins_fusion/path";
+                    // std::cout << "=====================================" << topic_name << "=========================" << std::endl;
                     break;
                 case drone::PathData::GLOBAL_PATH:
                     topic_name = "/drone_" + std::to_string(path_data.drone_id()) + "/ranging_fusion/global_path";
+                    // std::cout << "=====================================" << topic_name << "=========================" << std::endl;
                     break;
                 default:
                     ROS_ERROR("Unknown PathData type: %d", path_data.type());
@@ -143,7 +145,7 @@ private:
 
             ros::Publisher path_pub = getPublisher<nav_msgs::Path>(topic_name);
             path_pub.publish(path_msg);
-            ROS_INFO("Published PathData to %s", topic_name.c_str());
+            // ROS_INFO("Published PathData to %s", topic_name.c_str());
         } else {
             ROS_WARN("Received empty PathData");
         }

@@ -59,6 +59,7 @@ public:
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
+        std::cout << "==========================global path======================" << std::endl;
         if (!msg->poses.empty()) {
             nav_msgs::Path path_msg = *msg;
             for (auto& pose : path_msg.poses) {
@@ -99,7 +100,7 @@ private:
             boost::asio::write(socket, boost::asio::buffer(&data_length, sizeof(data_length)));
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
 
-            ROS_INFO("Sent OdometryData of type %d", type);
+            // ROS_INFO("Sent OdometryData of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send data: %s", e.what());
         }
@@ -134,7 +135,7 @@ private:
             boost::asio::write(socket, boost::asio::buffer(&data_length, sizeof(data_length)));
             boost::asio::write(socket, boost::asio::buffer(outbound_data));
 
-            ROS_INFO("Sent PathData of type %d", type);
+            // ROS_INFO("Sent PathData of type %d", type);
         } catch (boost::system::system_error& e) {
             ROS_ERROR("Failed to send path data: %s", e.what());
         }
