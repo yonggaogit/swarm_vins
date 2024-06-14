@@ -11,10 +11,13 @@
 
 using boost::asio::ip::tcp;
 
-enum MessageType {
+enum OdometryMessageType {
     IMU_PROPAGATE,
+    GLOBAL_ODOMETRY
+};
+
+enum PathMessageType {
     VINS_PATH,
-    GLOBAL_ODOMETRY,
     GLOBAL_PATH
 };
 

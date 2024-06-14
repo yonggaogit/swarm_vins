@@ -11,10 +11,13 @@
 
 using boost::asio::ip::tcp;
 
-enum MessageType {
+enum OdometryMessageType {
     IMU_PROPAGATE,
+    GLOBAL_ODOMETRY
+};
+
+enum PathMessageType {
     VINS_PATH,
-    GLOBAL_ODOMETRY,
     GLOBAL_PATH
 };
 
@@ -40,13 +43,13 @@ public:
     }
 
     void imuCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-        sendOdometryData(IMU_PROPAGATE, msg->header.stamp, msg->pose.pose.position, msg->pose.pose.orientation);
+        sendOdometryData(OdometryMessageType::IMU_PROPAGATE, msg->header.stamp, msg->pose.pose.position, msg->pose.pose.orientation);
     }
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg) {
         if (!msg->poses.empty()) {
             nav_msgs::Path path_msg = *msg;
-            sendPathData(VINS_PATH, path_msg);
+            sendPathData(PathMessageType::VINS_PATH, path_msg);
         } else {
             ROS_WARN("Received empty Path message");
         }
@@ -55,7 +58,7 @@ public:
     void globalOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
         geometry_msgs::Point position = msg->pose.pose.position;
         position.y += modifyYCoordinate();
-        sendOdometryData(GLOBAL_ODOMETRY, msg->header.stamp, position, msg->pose.pose.orientation);
+        sendOdometryData(OdometryMessageType::GLOBAL_ODOMETRY, msg->header.stamp, position, msg->pose.pose.orientation);
     }
 
     void globalPathCallback(const nav_msgs::Path::ConstPtr& msg) {
@@ -65,7 +68,7 @@ public:
             for (auto& pose : path_msg.poses) {
                 pose.pose.position.y += modifyYCoordinate();
             }
-            sendPathData(GLOBAL_PATH, path_msg);
+            sendPathData(PathMessageType::GLOBAL_PATH, path_msg);
         } else {
             ROS_WARN("Received empty Global Path message");
         }
