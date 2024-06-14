@@ -109,7 +109,7 @@ private:
 
         ros::Publisher odom_pub = getPublisher<nav_msgs::Odometry>(topic_name);
         odom_pub.publish(odom_msg);
-        // ROS_INFO("Published OdometryData to %s", topic_name.c_str());
+        ROS_INFO("Published OdometryData to %s", topic_name.c_str());
     }
 
     void handlePathData(const drone::PathData& path_data) {
@@ -150,7 +150,7 @@ private:
 
             ros::Publisher path_pub = getPublisher<nav_msgs::Path>(topic_name);
             path_pub.publish(path_msg);
-            // ROS_INFO("Published PathData to %s", topic_name.c_str());
+            ROS_INFO("Published PathData to %s", topic_name.c_str());
         } else {
             ROS_WARN("Received empty PathData");
         }
