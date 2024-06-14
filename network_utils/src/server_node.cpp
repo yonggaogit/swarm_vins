@@ -127,7 +127,7 @@ private:
                 pose_stamped.pose.orientation.w = path_data.poses(i).qw();
                 path_msg.poses.push_back(pose_stamped);
             }
-            std::cout << "==========================" << path_data.type() << "," << drone::PathData::VINS_PATH << std::endl;
+            // std::cout << "==========================" << path_data.type() << "," << drone::PathData::VINS_PATH << std::endl;
             std::string topic_name;
             switch (path_data.type()) {
                 case drone::PathData::VINS_PATH:
