@@ -117,10 +117,12 @@ private:
             nav_msgs::Path path_msg;
             path_msg.header.stamp = ros::Time(path_data.timestamp_sec(), path_data.timestamp_nsec());
             path_msg.header.frame_id = "world"; // 设置适当的frame_id
+            path_msg.header.seq = path_data.seq();
 
             for (int i = 0; i < path_data.poses_size(); ++i) {
                 geometry_msgs::PoseStamped pose_stamped;
                 pose_stamped.header.frame_id = "world"; // 设置适当的frame_id
+                pose_stamped.header.stamp = ros::Time(path_data.poses(i).timestamp_sec(), path_data.poses(i).timestamp_nsec());
                 pose_stamped.pose.position.x = path_data.poses(i).x();
                 pose_stamped.pose.position.y = path_data.poses(i).y();
                 pose_stamped.pose.position.z = path_data.poses(i).z();

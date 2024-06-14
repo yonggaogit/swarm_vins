@@ -3,13 +3,15 @@ syntax = "proto3";
 package drone;
 
 message Pose {
-    double x = 1;
-    double y = 2;
-    double z = 3;
-    double qx = 4;
-    double qy = 5;
-    double qz = 6;
-    double qw = 7;
+    int64 timestamp_sec = 1;
+    int64 timestamp_nsec = 2;
+    double x = 3;
+    double y = 4;
+    double z = 5;
+    double qx = 6;
+    double qy = 7;
+    double qz = 8;
+    double qw = 9;
 }
 
 message OdometryData {
@@ -33,7 +35,8 @@ message PathData {
     
     Type type = 1;
     int32 drone_id = 2;
-    int64 timestamp_sec = 3;
-    int64 timestamp_nsec = 4;
-    repeated Pose poses = 5;
+    int64 seq = 3;
+    int64 timestamp_sec = 4;
+    int64 timestamp_nsec = 5;
+    repeated Pose poses = 6;
 }

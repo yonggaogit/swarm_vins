@@ -114,11 +114,14 @@ private:
             drone::PathData path_data;
             path_data.set_type(static_cast<drone::PathData::Type>(type));
             path_data.set_drone_id(drone_id);
+            path_data.set_seq(path_msg.header.seq);
             path_data.set_timestamp_sec(path_msg.header.stamp.sec);
             path_data.set_timestamp_nsec(path_msg.header.stamp.nsec);
 
             for (const auto& pose_stamped : path_msg.poses) {
                 auto pose = path_data.add_poses();
+                pose->set_timestamp_sec(pose_stamped.header.stamp.sec);
+                pose->set_timestamp_nsec(pose_stamped.header.stamp.nsec);
                 pose->set_x(pose_stamped.pose.position.x);
                 pose->set_y(pose_stamped.pose.position.y);
                 pose->set_z(pose_stamped.pose.position.z);
