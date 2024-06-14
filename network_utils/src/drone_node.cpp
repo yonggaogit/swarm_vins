@@ -79,7 +79,7 @@ private:
         return (drone_id - 1) * offset_multiplier;
     }
 
-    void sendOdometryData(MessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
+    void sendOdometryData(OdometryMessageType type, const ros::Time& timestamp, const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation) {
         try {
             drone::OdometryData odom_data;
             odom_data.set_type(static_cast<drone::OdometryData::Type>(type));
@@ -109,7 +109,7 @@ private:
         }
     }
 
-    void sendPathData(MessageType type, const nav_msgs::Path& path_msg) {
+    void sendPathData(PathMessageType type, const nav_msgs::Path& path_msg) {
         try {
             drone::PathData path_data;
             path_data.set_type(static_cast<drone::PathData::Type>(type));
