@@ -1,6 +1,7 @@
 # 0 项目说明
 
 - 利用测距信息优化无人机视觉定位的位姿，每架无人机的初始位置固定，通常根据无人机的id，1号无人机在最右边，其它无人机依次往左摆开，间隔固定，每架无人机自身运行视觉SLAM代码，发布自身的位姿，通过网络共享自身的位姿，结合测距信息，初始位置间隔以及接收到的其它无人机位姿利用ceres优化无人机位姿。
+- 测试方法是多架无人机按照预定航线飞行完成后返回原点（降落的原点是VINS定位的原点，与实际起飞的原点肯定有误差），测量距离误差
 - 不同于仿真模拟数据集，实际使用过程中发现由于真实的UWB噪声较大，直接用UWB测距会导致轨迹非常波动难以保证无人机平稳飞行，通过设置UWB测距优化的权重，并设置平滑性优化项保证轨迹的平滑性
 - 整体定位效果不稳定且操作复杂 :warning::warning::warning:，如果需要多机定位作为基础支撑完成其它任务，很不建议采用这种方式，仅作为项目需要。
 
@@ -15,7 +16,16 @@
 - 安装配置
 
   ```shell
-  # 1 编译代码
+  # 1 安装依赖
+  sudo apt update
+  sudo apt install libzmq3-dev
+  sudo apt install protobuf-compiler libprotobuf-dev
+  sudo apt install openssh-client
+  sudo apt install openssh-server
+  sudo apt install sshpass
+  
+  
+  # 2 编译代码
   mkdir -p ~/JWK_PROJECT/swarm_vins_ws/src
   git clone https://github.com/yonggaogit/swarm_vins.git
   cd ~/JWK_PROJECT/swarm_vins_ws/
@@ -23,26 +33,26 @@
   catkin_make
   
   
-  # 2 chmod 一键运行脚本
+  # 3 chmod 一键运行脚本
   cd ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles
   chmod +x *.sh
   cd ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp
   chmod +x *.sh
   
   
-  # 3 增加USB端口的操作权限，避免每次都要sudu chmod +x /dev/ttyACM0
-  # 注意coolas是登录的用户名，如果都按照环境配置说明了就没问题，如果不是按照实际情况修改。
+  # 4 增加USB端口的操作权限，避免每次都要sudu chmod +x /dev/ttyACM0
+  # 注意coolas是登录的用户名，如果都按照环境配置说明了就没问题，如果不是，按照实际情况修改。
   sudo usermod -aG dialout coolas
   
-  # 4：注！！！：本项目还需要基于Fast-Drone-250完成无人机的飞行控制，如果没有下载Fast-Drone-250请下载，务必下载到~/JWK_PROJECT/目录下，因为有些一键启动脚本是按照这样的路径设置的
+  # 5 注！！！：本项目还需要基于Fast-Drone-250完成无人机的飞行控制，如果没有下载Fast-Drone-250请下载，务必下载到~/JWK_PROJECT/目录下，因为有些一键启动脚本是按照这样的路径设置的
   cd ~/JWK_PROJECT/
   git clone https://github.com/ZJU-FAST-Lab/Fast-Drone-250.git
   cd ~/JWK_PROJECT/Fast-Drone-250
   catkin_make
   # 注：可能会报错，Fast-Drone-250有很多依赖，具体需要安装的依赖请参考官方github的README.md
-  # 其中的VINS参数记得自己重新标定一下，参照官方教程，还要VINS配置文件中的OUTPUT文件夹记得建好，这里的问题在官方仓库中都有了详细的说明。
+  # 编译没有问题后，其中的VINS参数记得自己重新标定一下，新机器需要参照官方教程完整的走一遍，还有VINS配置文件中的OUTPUT文件夹记得建好，这里的问题在Fast-Drone-250的官方仓库中都有详细的说明。
   
-  # 4：写入环境变量，这样就可以在任意目录下启动节点，不需要source。当然要注意不能有节点名冲突，比如你之前下载了VINS也把它写入了~/.bashrc环境变量，但是Fast-Drone-250中也有VINS节点，这样就会同名冲突，写入后检查一下有没有冲突的。此外刚写入后需要关闭当前终端重新开启后才生效，或者在当前终端中再 source ~/.bashrc 才生效。
+  # 6 写入环境变量，这样就可以在任意目录下启动节点，不需要source。当然要注意不能有节点名冲突，比如你之前下载了VINS也把它写入了~/.bashrc环境变量，但是Fast-Drone-250中也有VINS节点，这样就会同名冲突，写入后检查一下有没有冲突的，如果有冲突运行是会报错的。此外刚写入后需要关闭当前终端重新开启后才生效，或者在当前终端中再 source ~/.bashrc 才生效。
   echo "source ~/JKW_PROJECT/swarm_vins_ws/devel/setup.bash" >> ~/.bashrc
   echo "source ~/JKW_PROJECT/Fast-Drone-250/devel/setup.bash" >> ~/.bashrc
   ```
@@ -53,15 +63,17 @@
 
 ## 2.1 network_utils
 
-- 用途：通过`ZeroMQ`将每个无人机自身由`VINS`估计的位姿话题通过`TCP`网络发送到其它无人机上，其它无人机在接收到后再通过话题的机制在本机发送出来
+- 用途：
 
-  - 由于无人机的初始位姿并不是相同的，而由`VINS`估计的单机位姿又是以自身运动起点为原点的位姿，因此在真实飞行时需要按照固定的间隔摆放无人机，在`network_utils/config/drone_config.cfg`文件中通过`offset_multiplier`来指明这个摆放间隔。从y轴的方向放置。接收到数据发送出来时会以自身为原点，比如我的无人机id是2，那么接收到无人机id是1时会将它的y坐标减去`offset_multiplier`，而如果是4号无人机，那么会将它的y坐标加上`2*offset_multiplier`
+  - `pose_pub_sub.cpp`：通过`ZeroMQ`将每个无人机自身由`VINS`估计的位姿话题通过`TCP`网络发送到其它无人机上，其它无人机在接收到后再通过话题的机制在本机发送出来。即无人机之间相互发送数据。
+    - 由于无人机的初始位姿并不是相同的，而由`VINS`估计的单机位姿又是以自身运动起点为原点的位姿，因此在真实飞行时需要按照固定的间隔摆放无人机，在`network_utils/config/drone_config.cfg`文件中通过`offset_multiplier`来指明这个摆放间隔。从y轴的方向放置。接收到数据发送出来时会以自身为原点，比如我的无人机id是2，那么接收到无人机id是1时会将它的y坐标减去`offset_multiplier`，而如果是4号无人机，那么会将它的y坐标加上`2*offset_multiplier`
+  - `drone_node.cpp`与`server_node.cpp`：无人机和地面站服务器之间发送数据，是单向的，每个无人机将自己的无人机id以及VINS位姿发送到地面站，地面站在RVIZ上看有没有漂移。也会发送联合优化后的位姿到地面站服务器，观察无人机飞行的轨迹。
 
 - 单独启动可以通过`network_utils/launch/start_drone.launch`来启动，但是更建议用`network_utils/shfiles`下的脚本来启动，具体启动方法将在下文中说明。
 
   - `drone{i}_ip`表示的是五架无人机的ip地址（最多支持五架，具体无人机的架数通过`num_drones`指示），`base_port`指示通信端口。`offset_multiplier`指示摆放无人机时的固定间隔。`odom_topic`指的是接收到其它无人机的里程计话题后以什么样的话题名后缀发布出来（因为是通过TCP发送里程计数据的，所以接收到后要重新组织为Odometry类型的话题并发布，通常是根据无人机id将其命名为`drone_{drone_id}/{odom_topic}`），`vins_topic`就是自身的里程计话题。
 
-  ```launch
+  ```shell
   <arg name="drone_id" default="1"/>
   <arg name="num_drones" default="3"/>
   <arg name="drone1_ip" default="192.168.7.104"/>
@@ -85,7 +97,7 @@
   - `pose_graph_path_topic`、`self_odom_topic`、`linktrack_nodeframe_topic`及`imu_topic`为对应的路径、里程计、UWB测距及IMU话题，需要确保修改正确
   - `uwb_vio_config`是优化过程中需要用到的参数，通常是不用改的，参数名字都顾名思义，在`/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml`中都可以看到。
 
-  ```launch
+  ```shell
   <arg name="drone_id" default="1" />
   <arg name="num_drones" default="2" />
   <arg name="uwb_vio_config" default="/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/ranging_fusion/config/param.yaml" />
@@ -103,7 +115,146 @@
 
 
 
-# 3 使用说明
+# 3 Fast-Drone-250的一些调整
+
+- 在这里的测试目的是定位的精度，采取的方式时无人机避障飞行一段距离后返回原点，测试与真实原点之间的误差距离
+
+- 因此希望的飞行方式是自主航点飞行，参照`~/JKW_PROJECT/Fast-Drone-250/src/planner/plan_manage/launch/single_run_in_exp.launch`文件，在同一目录下新建个launch文件（把它拷贝一份即可），命名为`single_run_in_exp_swarm_vins.launch` 文件。修改其中的某些项，`flight_type`修改为2，表示为按照预定航点飞行。`point_num`表示具体的航点个数，接下来就写具体的航点坐标，遵从以下几个原则，一次跨度不要太大，多架无人机的轨迹最好有对称性，注意这里的坐标不是全局坐标，而是以无人机为起点的自身坐标，机头（摄像头）朝向为x轴方向，竖直向上为z轴方向，右手坐标系。飞行高度即z轴坐标均设为1，最后一个航点要为$(0,0,1)$
+
+  ```shell
+  <!-- 1: use 2D Nav Goal to select goal  -->
+  <!-- 2: use global waypoints below  -->
+  <arg name="flight_type" value="2" />
+  <!-- global waypoints -->
+  <!-- It generates a piecewise min-snap traj passing all waypoints -->
+  <arg name="point_num" value="11" />
+  <arg name="point0_x" value="5.0" />
+  <arg name="point0_y" value="0.0" />
+  <arg name="point0_z" value="1" />
+  <arg name="point1_x" value="10.0" />
+  <arg name="point1_y" value="5.0" />
+  <arg name="point1_z" value="1.0" />
+  <arg name="point2_x" value="15.0" />
+  <arg name="point2_y" value="15.0" />
+  <arg name="point2_z" value="1.0" />
+  <arg name="point3_x" value="20.0" />
+  <arg name="point3_y" value="15.0" />
+  <arg name="point3_z" value="1.0" />
+  <arg name="point4_x" value="30.0" />
+  <arg name="point4_y" value="15.0" />
+  <arg name="point4_z" value="1.0" />
+  <arg name="point5_x" value="40.0" />
+  <arg name="point5_y" value="15.0" />
+  <arg name="point5_z" value="1.0" />
+  <arg name="point6_x" value="50.0" />
+  <arg name="point6_y" value="-15.0" />
+  <arg name="point6_z" value="1.0" />
+  <arg name="point7_x" value="40.0" />
+  <arg name="point7_y" value="-10.0" />
+  <arg name="point7_z" value="1.0" />
+  <arg name="point8_x" value="20.0" />
+  <arg name="point8_y" value="-10.0" />
+  <arg name="point8_z" value="1.0" />
+  <arg name="point9_x" value="10.0" />
+  <arg name="point9_y" value="-5.0" />
+  <arg name="point9_z" value="1.0" />
+  <arg name="point10_x" value="0.0" />
+  <arg name="point10_y" value="0.0" />
+  <arg name="point10_z" value="1.0" />
+  ```
+
+- Fast-Drone-250中设置的航点数最多不超过5个，因此如果你的航点个数超过了5个，还需要对`/home/coolas/JKW_PROJECT/Fast-Drone-250/src/planner/plan_manage/launch/advanced_param_exp.xml`，这个文件直接修改即可，不用复制一份。修改内容看底下的注释说明。
+
+  ```shell
+  <!-- 首先需要添加arg里point的个数，与single_run_in_exp_swarm_vins.launch里的个数保持一致，或者大于 -->
+  <arg name="point_num"/>
+  <arg name="point0_x"/>
+  <arg name="point0_y"/>
+  <arg name="point0_z"/>
+  <arg name="point1_x"/>
+  <arg name="point1_y"/>
+  <arg name="point1_z"/>
+  <arg name="point2_x"/>
+  <arg name="point2_y"/>
+  <arg name="point2_z"/>
+  <arg name="point3_x"/>
+  <arg name="point3_y"/>
+  <arg name="point3_z"/>
+  <arg name="point4_x"/>
+  <arg name="point4_y"/>
+  <arg name="point4_z"/>
+  <arg name="point5_x"/>
+  <arg name="point5_y"/>
+  <arg name="point5_z"/>
+  <arg name="point6_x"/>
+  <arg name="point6_y"/>
+  <arg name="point6_z"/>
+  <arg name="point7_x"/>
+  <arg name="point7_y"/>
+  <arg name="point7_z"/>
+  <arg name="point8_x"/>
+  <arg name="point8_y"/>
+  <arg name="point8_z"/>
+  <arg name="point9_x"/>
+  <arg name="point9_y"/>
+  <arg name="point9_z"/>
+  <arg name="point10_x"/>
+  <arg name="point10_y"/>
+  <arg name="point10_z"/>
+  
+  
+  <!-- 此外还要修改具体的param里的参数，与上面的对应 -->
+  <param name="fsm/waypoint_num" value="$(arg point_num)" type="int"/>
+  <param name="fsm/waypoint0_x" value="$(arg point0_x)" type="double"/>
+  <param name="fsm/waypoint0_y" value="$(arg point0_y)" type="double"/>
+  <param name="fsm/waypoint0_z" value="$(arg point0_z)" type="double"/>
+  <param name="fsm/waypoint1_x" value="$(arg point1_x)" type="double"/>
+  <param name="fsm/waypoint1_y" value="$(arg point1_y)" type="double"/>
+  <param name="fsm/waypoint1_z" value="$(arg point1_z)" type="double"/>
+  <param name="fsm/waypoint2_x" value="$(arg point2_x)" type="double"/>
+  <param name="fsm/waypoint2_y" value="$(arg point2_y)" type="double"/>
+  <param name="fsm/waypoint2_z" value="$(arg point2_z)" type="double"/>
+  <param name="fsm/waypoint3_x" value="$(arg point3_x)" type="double"/>
+  <param name="fsm/waypoint3_y" value="$(arg point3_y)" type="double"/>
+  <param name="fsm/waypoint3_z" value="$(arg point3_z)" type="double"/>
+  <param name="fsm/waypoint4_x" value="$(arg point4_x)" type="double"/>
+  <param name="fsm/waypoint4_y" value="$(arg point4_y)" type="double"/>
+  <param name="fsm/waypoint4_z" value="$(arg point4_z)" type="double"/>
+  <param name="fsm/waypoint5_x" value="$(arg point5_x)" type="double"/>
+  <param name="fsm/waypoint5_y" value="$(arg point5_y)" type="double"/>
+  <param name="fsm/waypoint5_z" value="$(arg point5_z)" type="double"/>
+  <param name="fsm/waypoint6_x" value="$(arg point6_x)" type="double"/>
+  <param name="fsm/waypoint6_y" value="$(arg point6_y)" type="double"/>
+  <param name="fsm/waypoint6_z" value="$(arg point6_z)" type="double"/>
+  <param name="fsm/waypoint7_x" value="$(arg point7_x)" type="double"/>
+  <param name="fsm/waypoint7_y" value="$(arg point7_y)" type="double"/>
+  <param name="fsm/waypoint7_z" value="$(arg point7_z)" type="double"/>
+  <param name="fsm/waypoint8_x" value="$(arg point8_x)" type="double"/>
+  <param name="fsm/waypoint8_y" value="$(arg point8_y)" type="double"/>
+  <param name="fsm/waypoint8_z" value="$(arg point8_z)" type="double"/>
+  <param name="fsm/waypoint9_x" value="$(arg point9_x)" type="double"/>
+  <param name="fsm/waypoint9_y" value="$(arg point9_y)" type="double"/>
+  <param name="fsm/waypoint9_z" value="$(arg point9_z)" type="double"/>
+  <param name="fsm/waypoint10_x" value="$(arg point10_x)" type="double"/>
+  <param name="fsm/waypoint10_y" value="$(arg point10_y)" type="double"/>
+  <param name="fsm/waypoint10_z" value="$(arg point10_z)" type="double"/>
+  ```
+
+- 除此之外，还有几个里程计话题输入要修改
+
+  - 刚刚新建的`~/JKW_PROJECT/Fast-Drone-250/src/planner/plan_manage/launch/single_run_in_exp_swarm_vins.launch`中的`odom_topic`
+
+    ```shell
+    <arg name="odom_topic" value="/ranging_fusion/global_odometry"/>
+    ```
+
+  - 复制一份`~/JKW_PROJECT/Fast-Drone-250/src/realflight_modules/px4ctrl/launch/run_ctrl.launch`（同一目录下）并将其重命名为`run_ctrl_swarm_vins.launch`，修改其`~odom`参数
+
+    ```shell
+    <remap from="~odom" to="/ranging_fusion/global_odometry" />
+    ```
+
+# 4 使用说明
 
 - 修改配置文件，配置文件在`~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/drone_config.cfg` 下，具体内容及其解释如下：
 
@@ -149,6 +300,14 @@
 
   
 
+- 使用前，要先在服务器上用`ssh`连接所有的无人机一次，因为用到了`sshpass`远程运行指令，其中`{DRONE_IP}`是无人机的IP，`coolas`是无人机的用户名，`504`是密码，如有不同记得修改。
+
+  ```shell	
+  ssh coolas@{DRONE_IP} -p 504
+  ```
+
+  
+
 - 完全按照`~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles`下的shell脚本顺序运行即可。
 
   ```shell
@@ -167,6 +326,8 @@
   
   # 从rviz中看，如果哪架无人机定位漂移了，关闭无人机的VINS节点重新启动，重新初始化，重新测试，如果正常就不要用这个脚本，其中{drone_id}是1，2，3，4的序号
   ./stop_vins.sh {drone_id}
+  # 关闭某一架漂移的无人机后重新启动该架无人机的VINS
+  ./start_target_vins.sh {drone_id}
   
   
   
@@ -196,6 +357,7 @@
   
   # 同一目录下开启新的终端
   # 开始在每个无人机上录制相关的话题数据，比如前面所说的稠密建图相关的话题数据，录制在无人机的机载电脑上，记得拷贝下来。
+  # 录制的数据存储的目录在~/Fast-Drone-250下
   ./8_start_record.sh
   
   # 同一目录下开启新的终端

@@ -1,6 +1,3 @@
-//
-// Created by jacy on 2022/4/16.
-//
 #include <ros/ros.h>
 #include <opencv2/highgui/highgui.hpp>
 

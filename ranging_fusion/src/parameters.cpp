@@ -1,6 +1,3 @@
-//
-// Created by jacy on 2022/4/16.
-//
 #include "parameters.h"
 
 int USE_LOOP_VINS;

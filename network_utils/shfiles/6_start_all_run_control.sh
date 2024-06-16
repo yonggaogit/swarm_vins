@@ -10,7 +10,7 @@ DRONE_IPS=($DRONE1_IP $DRONE2_IP $DRONE3_IP $DRONE4_IP $DRONE5_IP)
 
 start_drone() {
     echo $2
-    sshpass -p $PASSWORD ssh $USER@$2 "bash -c '/home/coolas/JKW_PROJECT/Fast-Drone-250/shfiles/run_control.sh' " &
+    sshpass -p $PASSWORD ssh $USER@$2 "bash -c '/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp/run_control.sh' " &
 }
 
 # 启动指定数量的无人机
