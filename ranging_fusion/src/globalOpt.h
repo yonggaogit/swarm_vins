@@ -22,12 +22,12 @@ class GlobalOptimization
 public:
 	GlobalOptimization(int window_size);
 	~GlobalOptimization();
-	void inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ);
+	void inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ, Eigen::Vector3d OdomV);
 	void inputOther(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ);
 	void inputDis(double t, double dis);
 
 
-	void getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ);
+	void getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ, Eigen::Vector3d &odomV);
     void updateVIOPoseMap(const nav_msgs::Path &vio_path_msg);
 	nav_msgs::Path global_path;
 
@@ -38,11 +38,13 @@ private:
 	map<double, vector<double>> globalPoseMap;
 
 	map<double, vector<double>> selfPoseMap;
+	map<double, vector<double>> selfVelocityMap;
 	map<double, vector<double>> otherPoseMap;
 	map<double, double> disMap;
 	bool newVIO;
 	std::mutex mPoseMap;
 	Eigen::Vector3d lastP;
+	Eigen::Vector3d lastV;
 	Eigen::Quaterniond lastQ;
 	double lastT;
 	std::thread threadOpt;

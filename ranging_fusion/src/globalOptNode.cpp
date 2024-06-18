@@ -141,6 +141,8 @@ void processData() {
                 self_q.y() = odom_msg.pose.pose.orientation.y;
                 self_q.z() = odom_msg.pose.pose.orientation.z;
 
+                Eigen::Vector3d self_velocity = Eigen::Vector3d(odom_msg.twist.twist.linear.x, odom_msg.twist.twist.linear.y, odom_msg.twist.twist.linear.z);
+
 
                 Eigen::Vector3d other_t(other_odom_msg.pose.pose.position.x,
                                     other_odom_msg.pose.pose.position.y,
@@ -157,7 +159,7 @@ void processData() {
 
                 // std::cout << "===================================same timestamp data============================" << std::endl;
 
-                globalEstimator->inputSelf(self_time, self_t, self_q);
+                globalEstimator->inputSelf(self_time, self_t, self_q, self_velocity);
                 globalEstimator->inputOther(other_time, other_t, other_q);
                 globalEstimator->inputDis(dis_time, dis);
                 
@@ -183,8 +185,9 @@ void processData() {
     // std::cout << "=============================youhua============================" << std::endl;
     Eigen::Vector3d global_p;
     Eigen:: Quaterniond global_q;
+    Eigen::Vector3d global_v;
     double global_t = 0.0;
-    globalEstimator->getGlobalOdom(global_t, global_p, global_q);
+    globalEstimator->getGlobalOdom(global_t, global_p, global_q, global_v);
     // // 输出 Vector3d
     // std::cout << "global_p: " << global_p.transpose() << std::endl;
 
@@ -203,7 +206,7 @@ void processData() {
     // } else odometry.header.stamp = ros::Time::now();
     odometry.header.stamp = ros::Time::now();
     odometry.header.frame_id = "world";
-    odometry.child_frame_id = "world";
+    odometry.child_frame_id = "";
     odometry.pose.pose.position.x = global_p.x();
     odometry.pose.pose.position.y = global_p.y();
     odometry.pose.pose.position.z = global_p.z();
@@ -211,6 +214,9 @@ void processData() {
     odometry.pose.pose.orientation.y = global_q.y();
     odometry.pose.pose.orientation.z = global_q.z();
     odometry.pose.pose.orientation.w = global_q.w();
+    odometry.twist.twist.linear.x = global_v.x();
+    odometry.twist.twist.linear.y = global_v.y();
+    odometry.twist.twist.linear.z = global_v.z();
     pub_global_odometry.publish(odometry);
     pub_global_path.publish(*global_path);
 }
@@ -286,6 +292,7 @@ int main(int argc, char **argv)
 
     typedef message_filters::sync_policies::ApproximateTime<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), self_odom_sub, distance_sub);
+    sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
     sync.registerCallback(boost::bind(&odomDistanceCallback, _1, _2));
 
     pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1000);

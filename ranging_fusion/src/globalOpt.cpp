@@ -32,12 +32,15 @@ void GlobalOptimization::updateVIOPoseMap(const nav_msgs::Path &vio_path_msg){
     this->mPoseMap.unlock();
 }
 
-void GlobalOptimization::inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ)
+void GlobalOptimization::inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ, Eigen::Vector3d OdomV)
 {
     mPoseMap.lock();
     vector<double> pose{OdomP.x(), OdomP.y(), OdomP.z(),
     					     OdomQ.w(), OdomQ.x(), OdomQ.y(), OdomQ.z()};
+    vector<double> velocity{OdomV.x(), OdomV.y(), OdomV.z()};
+
     selfPoseMap[t] = pose;
+    selfVelocityMap[t] = velocity;
 
     geometry_msgs::PoseStamped pose_stamped;
     pose_stamped.header.stamp = ros::Time(t);
@@ -55,6 +58,7 @@ void GlobalOptimization::inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quate
     lastT = t;
     lastP = OdomP;
     lastQ = OdomQ;
+    lastV = OdomV;
     mPoseMap.unlock();
 
     newVIO = true;
@@ -75,11 +79,12 @@ void GlobalOptimization::inputDis(double t, double dis)
 }
 
 
-void GlobalOptimization::getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ)
+void GlobalOptimization::getGlobalOdom(double &T, Eigen::Vector3d &odomP, Eigen::Quaterniond &odomQ, Eigen::Vector3d &odomV)
 {
     T = lastT;
     odomP = lastP;
     odomQ = lastQ;
+    odomV = lastV;
 }
 
 void GlobalOptimization::optimize() {
@@ -101,7 +106,7 @@ void GlobalOptimization::optimize() {
                 std::advance(self_iter, -window_size_);
                 std::advance(other_iter, -window_size_);
 
-                double distance_weight = 0.2; // 设置距离残差的权重
+                double distance_weight = 0.1; // 设置距离残差的权重
                 double smoothness_weight = 0.1; // 设置平滑性残差的权重
                 double velocity_weight = 0.3; // 设置速度残差的权重
                 double acceleration_weight = 0.3; // 设置加速度残差的权重
@@ -172,6 +177,7 @@ void GlobalOptimization::optimize() {
 
             std::cout << summary.FullReport() << std::endl;
             auto lastElement = std::prev(selfPoseMap.end());
+            auto lastVelocityElement = std::prev(selfVelocityMap.end());
 
             mPoseMap.lock();
             for (auto it = selfPoseMap.begin(); it != selfPoseMap.end(); ++it) {
@@ -180,6 +186,7 @@ void GlobalOptimization::optimize() {
                     lastT = it->first;
                     lastP = Eigen::Vector3d(it->second[0], it->second[1], it->second[2]);
                     lastQ = Eigen::Quaterniond(it->second[3], it->second[4], it->second[5], it->second[6]).toRotationMatrix();
+                    lastV = Eigen::Vector3d(lastVelocityElement->second[0], lastVelocityElement->second[1], lastVelocityElement->second[2]);
                 }
             }
             updateGlobalPath();
