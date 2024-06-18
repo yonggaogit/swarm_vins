@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 
     typedef message_filters::sync_policies::ApproximateTime<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), self_odom_sub, distance_sub);
-    sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
+    // sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
     sync.registerCallback(boost::bind(&odomDistanceCallback, _1, _2));
 
     pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1000);
