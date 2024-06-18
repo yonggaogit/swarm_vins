@@ -224,14 +224,14 @@ void processData() {
 
 void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, const nlink_parser::LinktrackNodeframe2::ConstPtr& distance_msg) { 
     // std::cout << "===================================odom distance callback============================" << std::endl;   
-    // if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
-    // {
-    //     m_buf.lock();
-    //     nav_msgs::Odometry adjusted_odom = preIntegrateImu(*self_odom_msg, distance_msg->header.stamp);
-    //     m_buf.unlock();
-    //     odomDistanceCallback(boost::make_shared<nav_msgs::Odometry>(adjusted_odom), distance_msg);
-    //     return;
-    // }
+    if (fabs(self_odom_msg->header.stamp.toSec() - distance_msg->header.stamp.toSec()) > TIME_TOLERANCE)
+    {
+        m_buf.lock();
+        nav_msgs::Odometry adjusted_odom = preIntegrateImu(*self_odom_msg, distance_msg->header.stamp);
+        m_buf.unlock();
+        odomDistanceCallback(boost::make_shared<nav_msgs::Odometry>(adjusted_odom), distance_msg);
+        return;
+    }
 
     double x_dis = self_odom_msg->pose.pose.position.x - last_vio_pos[0];
     double y_dis = self_odom_msg->pose.pose.position.y - last_vio_pos[1];

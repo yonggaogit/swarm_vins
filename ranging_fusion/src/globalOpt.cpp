@@ -106,10 +106,10 @@ void GlobalOptimization::optimize() {
                 std::advance(self_iter, -window_size_);
                 std::advance(other_iter, -window_size_);
 
-                double distance_weight = 0; // 设置距离残差的权重
+                double distance_weight = 0.2; // 设置距离残差的权重
                 double smoothness_weight = 0.1; // 设置平滑性残差的权重
-                double velocity_weight = 0.1; // 设置速度残差的权重
-                double acceleration_weight = 0.1; // 设置加速度残差的权重
+                double velocity_weight = 0.3; // 设置速度残差的权重
+                double acceleration_weight = 0.3; // 设置加速度残差的权重
 
                 while (dis_iter != disMap.end() && self_iter != selfPoseMap.end() && other_iter != otherPoseMap.end()) {
                     double distance = dis_iter->second;
