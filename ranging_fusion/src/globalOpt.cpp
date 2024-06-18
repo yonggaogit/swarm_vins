@@ -106,7 +106,7 @@ void GlobalOptimization::optimize() {
                 std::advance(self_iter, -window_size_);
                 std::advance(other_iter, -window_size_);
 
-                double distance_weight = 0.1; // 设置距离残差的权重
+                double distance_weight = 0; // 设置距离残差的权重
                 double smoothness_weight = 0.1; // 设置平滑性残差的权重
                 double velocity_weight = 0.1; // 设置速度残差的权重
                 double acceleration_weight = 0.1; // 设置加速度残差的权重
