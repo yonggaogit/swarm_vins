@@ -2,9 +2,9 @@
 #include "Factors.h"
 #include <ros/ros.h>
 
-GlobalOptimization::GlobalOptimization(int window_size)
-    : window_size_(window_size)
+GlobalOptimization::GlobalOptimization()
 {
+    window_size_ = 1;
     newVIO = false;
     global_path.header.frame_id = "world";
     threadOpt = std::thread(&GlobalOptimization::optimize, this);

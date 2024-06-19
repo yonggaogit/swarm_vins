@@ -21,7 +21,7 @@ using namespace std;
 class GlobalOptimization
 {
 public:
-	GlobalOptimization(int window_size);
+	GlobalOptimization();
 	~GlobalOptimization();
 	void inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ, Eigen::Vector3d OdomV);
 	void inputOther(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ);

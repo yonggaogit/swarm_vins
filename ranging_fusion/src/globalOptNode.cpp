@@ -20,7 +20,7 @@
 #include <boost/bind.hpp>
 #include <chrono>
 
-GlobalOptimization* globalEstimator;
+GlobalOptimization globalEstimator;
 ros::Publisher pub_global_odometry, pub_global_path;
 nav_msgs::Path* global_path;
 std::mutex m_buf;
@@ -29,12 +29,14 @@ std::queue<std::pair<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2>> odo
 std::queue<std::pair<int, nav_msgs::Odometry>> other_odom_queue;
 std::deque<sensor_msgs::Imu> imu_buffer;
 
+bool newPath = false;
+
 double last_vio_pos[3] = {-9,-9,-9};
 
 void vio_path_callback(const nav_msgs::Path &vio_path_msg)
 {
     if(USE_LOOP_VINS)
-        globalEstimator->updateVIOPoseMap(vio_path_msg);
+        globalEstimator.updateVIOPoseMap(vio_path_msg);
 }
 
 void imu_callback(const sensor_msgs::Imu::ConstPtr &imu_msg)
@@ -135,7 +137,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
 
     double self_time = self_odom_msg->header.stamp.toSec();
 
-    globalEstimator->inputSelf(self_time, self_t, self_q, self_velocity);
+    globalEstimator.inputSelf(self_time, self_t, self_q, self_velocity);
     
 
     m_buf.lock();
@@ -155,8 +157,8 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
             double other_time = other_odom_msg.header.stamp.toSec();
             double dis_time = distance_msg->header.stamp.toSec();
 
-            globalEstimator->inputOther(other_time, other_t, other_q);
-            globalEstimator->inputDis(dis_time, distance_msg->nodes[drone_id - 1].dis);
+            globalEstimator.inputOther(other_time, other_t, other_q);
+            globalEstimator.inputDis(dis_time, distance_msg->nodes[drone_id - 1].dis);
             
             other_odom_queue.pop();
             break;
@@ -172,7 +174,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     Eigen:: Quaterniond global_q;
     Eigen::Vector3d global_v;
     double global_t = 0.0;
-    globalEstimator->getGlobalOdom(global_t, global_p, global_q, global_v);
+    globalEstimator.getGlobalOdom(global_t, global_p, global_q, global_v);
     nav_msgs::Odometry odometry;
     odometry.header.stamp = ros::Time::now();
     odometry.header.frame_id = "world";
@@ -188,7 +190,7 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     odometry.twist.twist.linear.y = global_v.y();
     odometry.twist.twist.linear.z = global_v.z();
     pub_global_odometry.publish(odometry);
-    pub_global_path.publish(*global_path);
+    newPath = true;
 }
 
 void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone_id) {
@@ -198,6 +200,14 @@ void otherOdomCallback(const nav_msgs::Odometry::ConstPtr& msg, const int& drone
     m_buf.unlock();
 }
 
+void timerCallback(const ros::TimerEvent&)
+{
+    if( newPath ) {
+        pub_global_path.publish(*global_path);
+        newPath = false;
+    }
+}
+
 
 int main(int argc, char **argv)
 {
@@ -205,8 +215,8 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
 
     readParameters(n);
-    globalEstimator = new GlobalOptimization(WINDOW_SIZE);
-    global_path = &globalEstimator->global_path;
+    // globalEstimator = new GlobalOptimization(WINDOW_SIZE);
+    global_path = &globalEstimator.global_path;
     std::string pose_graph_path_topic, self_odom_topic, linktrack_nodeframe_topic, imu_topic;
     n.param<std::string>("pose_graph_path_topic", pose_graph_path_topic, "/pose_graph/path_1");
     n.param<std::string>("self_odom_topic", self_odom_topic, "/vins_fusion/imu_propagate");
@@ -234,11 +244,13 @@ int main(int argc, char **argv)
     // sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
     sync.registerCallback(boost::bind(&odomDistanceCallback, _1, _2));
 
-    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 100);
-    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 100);
+    ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
+
+    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1);
+    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 1);
 
     ros::spin();
 
-    delete globalEstimator;
+    // delete globalEstimator;
     return 0;
 }
