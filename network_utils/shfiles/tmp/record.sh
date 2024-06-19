@@ -21,7 +21,5 @@ rosbag record --tcpnodelay \
 /nlink_linktrack_nodeframe2 \
 /ranging_fusion/global_odometry \
 /ranging_fusion/global_path \
-/camera/depth/image_rect_raw \
-/camera/color/image_raw \
 /mavros/imu/data_raw \
 /position_cmd -o /home/coolas/JKW_PROJECT/$ROS_BAG_NAME

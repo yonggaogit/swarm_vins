@@ -176,7 +176,11 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     double global_t = 0.0;
     globalEstimator.getGlobalOdom(global_t, global_p, global_q, global_v);
     nav_msgs::Odometry odometry;
-    odometry.header.stamp = ros::Time::now();
+    if( global_t == 0.0 ){
+        odometry.header.stamp = ros::Time::now();
+    } else {
+        odometry.header.stamp = ros::Time(global_t);
+    }
     odometry.header.frame_id = "world";
     odometry.child_frame_id = "";
     odometry.pose.pose.position.x = global_p.x();
@@ -186,9 +190,9 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
     odometry.pose.pose.orientation.y = global_q.y();
     odometry.pose.pose.orientation.z = global_q.z();
     odometry.pose.pose.orientation.w = global_q.w();
-    odometry.twist.twist.linear.x = global_v.x();
-    odometry.twist.twist.linear.y = global_v.y();
-    odometry.twist.twist.linear.z = global_v.z();
+    // odometry.twist.twist.linear.x = global_v.x();
+    // odometry.twist.twist.linear.y = global_v.y();
+    // odometry.twist.twist.linear.z = global_v.z();
     pub_global_odometry.publish(odometry);
     newPath = true;
 }

@@ -253,6 +253,19 @@
     ```shell
     <remap from="~odom" to="/ranging_fusion/global_odometry" />
     ```
+  
+- Fast-Drone-250 中的takeoff 参数说明，在`~/JKW_PROJECT/Fast-Drone-250/src/realflight_modules/px4ctrl/config/ctrl_param_fpv.yaml`
+
+```yaml
+auto_takeoff_land:
+    enable: true
+    enable_auto_arm: true
+    no_RC: false
+    takeoff_height: 1.0 # m
+    takeoff_land_speed: 0.2 # m/s
+```
+
+
 
 # 4 使用说明
 
