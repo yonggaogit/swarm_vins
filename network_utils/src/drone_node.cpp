@@ -36,10 +36,10 @@ public:
             ros::shutdown();
         }
 
-        imu_sub = nh.subscribe("/vins_fusion/imu_propagate", 10, &DroneNode::imuCallback, this);
-        path_sub = nh.subscribe("/vins_fusion/path", 10, &DroneNode::pathCallback, this);
-        global_odometry_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdometryCallback, this);
-        global_path_sub = nh.subscribe("/ranging_fusion/global_path", 10, &DroneNode::globalPathCallback, this);
+        // imu_sub = nh.subscribe("/vins_fusion/imu_propagate", 10, &DroneNode::imuCallback, this);
+        path_sub = nh.subscribe("/vins_fusion/path", 1, &DroneNode::pathCallback, this);
+        // global_odometry_sub = nh.subscribe("/ranging_fusion/global_odometry", 10, &DroneNode::globalOdometryCallback, this);
+        global_path_sub = nh.subscribe("/ranging_fusion/global_path", 1, &DroneNode::globalPathCallback, this);
     }
 
     void imuCallback(const nav_msgs::Odometry::ConstPtr& msg) {
