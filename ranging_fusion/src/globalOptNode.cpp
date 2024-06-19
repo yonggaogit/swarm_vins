@@ -219,23 +219,23 @@ int main(int argc, char **argv)
     int drone_id, num_drones;
     n.param("drone_id", drone_id, 1);
     n.param("num_drones", num_drones, 2);
-    ros::Subscriber sub_other_odom_1 = n.subscribe<nav_msgs::Odometry>("/drone_1/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 1));
-    ros::Subscriber sub_other_odom_2 = n.subscribe<nav_msgs::Odometry>("/drone_2/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 2));
-    ros::Subscriber sub_other_odom_3 = n.subscribe<nav_msgs::Odometry>("/drone_3/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 3));
-    ros::Subscriber sub_other_odom_4 = n.subscribe<nav_msgs::Odometry>("/drone_4/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 4));
-    ros::Subscriber sub_other_odom_5 = n.subscribe<nav_msgs::Odometry>("/drone_5/vins_fusion/imu_propagate", 10, boost::bind(otherOdomCallback, _1, 5));
+    ros::Subscriber sub_other_odom_1 = n.subscribe<nav_msgs::Odometry>("/drone_1/vins_fusion/imu_propagate", 100, boost::bind(otherOdomCallback, _1, 1));
+    ros::Subscriber sub_other_odom_2 = n.subscribe<nav_msgs::Odometry>("/drone_2/vins_fusion/imu_propagate", 100, boost::bind(otherOdomCallback, _1, 2));
+    ros::Subscriber sub_other_odom_3 = n.subscribe<nav_msgs::Odometry>("/drone_3/vins_fusion/imu_propagate", 100, boost::bind(otherOdomCallback, _1, 3));
+    ros::Subscriber sub_other_odom_4 = n.subscribe<nav_msgs::Odometry>("/drone_4/vins_fusion/imu_propagate", 100, boost::bind(otherOdomCallback, _1, 4));
+    ros::Subscriber sub_other_odom_5 = n.subscribe<nav_msgs::Odometry>("/drone_5/vins_fusion/imu_propagate", 100, boost::bind(otherOdomCallback, _1, 5));
 
     
-    message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, self_odom_topic, 1);
-    message_filters::Subscriber<nlink_parser::LinktrackNodeframe2> distance_sub(n, linktrack_nodeframe_topic, 1);
+    message_filters::Subscriber<nav_msgs::Odometry> self_odom_sub(n, self_odom_topic, 100);
+    message_filters::Subscriber<nlink_parser::LinktrackNodeframe2> distance_sub(n, linktrack_nodeframe_topic, 100);
 
     typedef message_filters::sync_policies::ApproximateTime<nav_msgs::Odometry, nlink_parser::LinktrackNodeframe2> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), self_odom_sub, distance_sub);
     // sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
     sync.registerCallback(boost::bind(&odomDistanceCallback, _1, _2));
 
-    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1000);
-    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 1000);
+    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 100);
+    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 100);
 
     ros::spin();
 

@@ -175,7 +175,7 @@ void GlobalOptimization::optimize() {
             ceres::Solver::Summary summary;
             ceres::Solve(options, &problem, &summary);
 
-            std::cout << summary.FullReport() << std::endl;
+            // std::cout << summary.FullReport() << std::endl;
             auto lastElement = std::prev(selfPoseMap.end());
             auto lastVelocityElement = std::prev(selfVelocityMap.end());
 
