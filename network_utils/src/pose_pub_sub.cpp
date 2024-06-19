@@ -72,7 +72,7 @@ public:
                     if (std::stoi(drone_id) != drone_id_) {
                         std::string topic_name = "/drone_" + drone_id + vins_topic_;
                         nav_msgs::Odometry odom_msg;
-                        odom_msg.header.stamp = ros_timestamp;
+                        odom_msg.header.stamp = ros::Time::now();
                         odom_msg.header.frame_id = "world";
                         odom_msg.child_frame_id = "world";
                         odom_msg.pose.pose.position.x = px;
