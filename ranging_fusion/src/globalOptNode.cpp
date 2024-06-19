@@ -246,8 +246,8 @@ int main(int argc, char **argv)
 
     ros::Timer timer = n.createTimer(ros::Duration(0.1), timerCallback);
 
-    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1);
-    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 1);
+    pub_global_path = n.advertise<nav_msgs::Path>("global_path", 1000);
+    pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 1000);
 
     ros::spin();
 
