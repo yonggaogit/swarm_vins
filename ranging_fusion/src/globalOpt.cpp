@@ -60,8 +60,6 @@ void GlobalOptimization::inputSelf(double t, Eigen::Vector3d OdomP, Eigen::Quate
     lastQ = OdomQ;
     lastV = OdomV;
     mPoseMap.unlock();
-
-    newVIO = true;
 }
 void GlobalOptimization::inputOther(double t, Eigen::Vector3d OdomP, Eigen::Quaterniond OdomQ)
 {
@@ -70,6 +68,8 @@ void GlobalOptimization::inputOther(double t, Eigen::Vector3d OdomP, Eigen::Quat
     					     OdomQ.w(), OdomQ.x(), OdomQ.y(), OdomQ.z()};
     otherPoseMap[t] = pose;
     mPoseMap.unlock();
+
+    newVIO = true;
 }
 void GlobalOptimization::inputDis(double t, double dis)
 {
@@ -166,7 +166,7 @@ void GlobalOptimization::optimize() {
                 }
             }
 
-            mPoseMap.unlock();
+            // mPoseMap.unlock();
 
             ceres::Solver::Options options;
             options.linear_solver_type = ceres::DENSE_QR;
@@ -175,11 +175,11 @@ void GlobalOptimization::optimize() {
             ceres::Solver::Summary summary;
             ceres::Solve(options, &problem, &summary);
 
-            // std::cout << summary.FullReport() << std::endl;
+            std::cout << summary.FullReport() << std::endl;
             auto lastElement = std::prev(selfPoseMap.end());
             auto lastVelocityElement = std::prev(selfVelocityMap.end());
 
-            mPoseMap.lock();
+            // mPoseMap.lock();
             for (auto it = selfPoseMap.begin(); it != selfPoseMap.end(); ++it) {
                 globalPoseMap[it->first] = it->second;
                 if (it == lastElement) {
@@ -192,7 +192,10 @@ void GlobalOptimization::optimize() {
             updateGlobalPath();
             mPoseMap.unlock();
         }
+        std::chrono::milliseconds dura(2000);
+        std::this_thread::sleep_for(dura);
     }
+    return;
 }
 
 
