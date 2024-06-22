@@ -248,7 +248,7 @@ int main(int argc, char **argv)
     // sync.setMaxIntervalDuration(ros::Duration(TIME_TOLERANCE));
     sync.registerCallback(boost::bind(&odomDistanceCallback, _1, _2));
 
-    ros::Timer timer = n.createTimer(ros::Duration(0.2), timerCallback);
+    ros::Timer timer = n.createTimer(ros::Duration(0.5), timerCallback);
 
     pub_global_path = n.advertise<nav_msgs::Path>("global_path", 100);
     pub_global_odometry = n.advertise<nav_msgs::Odometry>("global_odometry", 100);
