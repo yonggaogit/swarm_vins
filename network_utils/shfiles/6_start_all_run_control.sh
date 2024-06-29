@@ -17,5 +17,6 @@ start_drone() {
 for ((i=1; i<=NUM_DRONES; i++)); do
     start_drone $i ${DRONE_IPS[$i-1]}
 done
+# start_drone 2 ${DRONE_IPS[1]}
 
 wait
