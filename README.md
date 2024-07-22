@@ -39,9 +39,9 @@
   
   
   # 2 编译代码
-  mkdir -p ~/JWK_PROJECT/swarm_vins_ws/src
+  mkdir -p ~/JKW_PROJECT/swarm_vins_ws/src
   git clone https://github.com/yonggaogit/swarm_vins.git
-  cd ~/JWK_PROJECT/swarm_vins_ws/
+  cd ~/JKW_PROJECT/swarm_vins_ws/
   #一次编译可能会报错，因为其中有相互依赖的包，要保证编译后才能被其它的使用，如果catkin_make报错，输入 source devel/setup.bash 后再继续输入 catkin_make ，重复多次（3次左右）就能保证成功编译。当然因为测试的电脑都是使用过很久的，大部分依赖包都装过了，如果遇到一些其它问题在网上检索一下，通常下一些依赖包就可以了。
   catkin_make
   
@@ -57,10 +57,10 @@
   # 注意coolas是登录的用户名，如果都按照环境配置说明了就没问题，如果不是，按照实际情况修改。
   sudo usermod -aG dialout coolas
   
-  # 5 注！！！：本项目还需要基于Fast-Drone-250完成无人机的飞行控制，如果没有下载Fast-Drone-250请下载，务必下载到~/JWK_PROJECT/目录下，因为有些一键启动脚本是按照这样的路径设置的
-  cd ~/JWK_PROJECT/
+  # 5 注！！！：本项目还需要基于Fast-Drone-250完成无人机的飞行控制，如果没有下载Fast-Drone-250请下载，务必下载到~/JKW_PROJECT/目录下，因为有些一键启动脚本是按照这样的路径设置的
+  cd ~/JKW_PROJECT/
   git clone https://github.com/ZJU-FAST-Lab/Fast-Drone-250.git
-  cd ~/JWK_PROJECT/Fast-Drone-250
+  cd ~/JKW_PROJECT/Fast-Drone-250
   catkin_make
   # 注：可能会报错，Fast-Drone-250有很多依赖，具体需要安装的依赖请参考官方github的README.md
   # 编译没有问题后，其中的VINS参数记得自己重新标定一下，新机器需要参照官方教程完整的走一遍，还有VINS配置文件中的OUTPUT文件夹记得建好，这里的问题在Fast-Drone-250的官方仓库中都有详细的说明。
@@ -333,6 +333,7 @@ auto_takeoff_land:
 - ！！！！！！因为录制的数据量很大，每次实验结束时及时关闭节点，并拷贝录制的数据后删除。否则数据量很多导致磁盘满了，会导致 NUC 无法开机。
 
 - 完全按照`~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles`下的shell脚本顺序运行即可。
+- 特别地，由于网络环境不好，不建议使用 ./2_start_rviz.sh 以及 ./3 start_all_drone_node.sh，即不在服务器端进行可视化，否则会影响定位效果
 
   ```shell
   cd ~/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles
@@ -346,6 +347,7 @@ auto_takeoff_land:
   # 这个脚本的作用是开启rviz可视化同时开启服务端监听端口，等待接收来自无人机的数据，可视化的内容是所有无人机的vins定位结果，在开始前可以轻微移动看看它们定位漂移没有
   # 还可以可视化后面的优化后的全局path和Odometry
   # 并没有稠密建图的可视化，因为这么多无人机发现这么大的数据量会很卡，只看轨迹就可以了，具体的建图结果，在每个无人机上录制就行了。
+  # 不建议启动该脚本，可以用 Nomachine 看每个无人机是否漂移了
   ./2_start_rviz.sh
   
   # 从rviz中看，如果哪架无人机定位漂移了，关闭无人机的VINS节点重新启动，重新初始化，重新测试，如果正常就不要用这个脚本，其中{drone_id}是1，2，3，4的序号
@@ -358,6 +360,7 @@ auto_takeoff_land:
   # 同一目录下开启新的终端
   # 这个脚本的作用是所用无人机与服务器建立网络连接，同时订阅无人机上的VINS位姿话题发送到服务器端，服务器端接收到后会加上前缀发布出来，在前面的可视化程序中显示出来
   # 还有就是后面开启ranging_fusion后，也订阅它们的输出话题发送到服务器端可视化。
+  # 不建议启动该脚本，可以用 Nomachine 看每个无人机是否漂移了
   ./3_start_all_drone_node.sh
   
   
