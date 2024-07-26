@@ -16,10 +16,13 @@ rosbag record --tcpnodelay \
 /vins_fusion/odometry \
 /vins_fusion/camera_pose \
 /vins_fusion/camera_pose_visual \
+/vins_fusion/imu_propagate \
 /camera/infra1/image_rect_raw \
 /camera/infra2/image_rect_raw \
 /nlink_linktrack_nodeframe2 \
 /ranging_fusion/global_odometry \
 /ranging_fusion/global_path \
 /mavros/imu/data_raw \
+/drone_1/vins_fusion/imu_propagate \
+/drone_2/vins_fusion/imu_propagate \
 /position_cmd -o /home/coolas/JKW_PROJECT/$ROS_BAG_NAME

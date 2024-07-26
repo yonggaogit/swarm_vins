@@ -195,7 +195,7 @@ void GlobalOptimization::optimize() {
             updateGlobalPath();
             mPoseMap.unlock();
         }
-        std::chrono::milliseconds dura(2000);
+        std::chrono::milliseconds dura(2000);  // ?
         std::this_thread::sleep_for(dura);
     }
     return;

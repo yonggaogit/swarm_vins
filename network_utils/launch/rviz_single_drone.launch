@@ -1,0 +1,4 @@
+<launch>
+    <arg name="rviz_config" default="/home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/config/single_drone.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_config)" />
+</launch>

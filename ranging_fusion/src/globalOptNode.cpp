@@ -51,6 +51,7 @@ void imu_callback(const sensor_msgs::Imu::ConstPtr &imu_msg)
     m_buf.unlock();
 }
 
+// odom_msg是自身里程计消息，target_time是UWB消息的时间戳
 nav_msgs::Odometry preIntegrateImu(const nav_msgs::Odometry &odom_msg, const ros::Time &target_time)
 {
     Eigen::Vector3d position = Eigen::Vector3d(odom_msg.pose.pose.position.x, odom_msg.pose.pose.position.y, odom_msg.pose.pose.position.z);
@@ -157,8 +158,8 @@ void odomDistanceCallback(const nav_msgs::Odometry::ConstPtr& self_odom_msg, con
             double other_time = other_odom_msg.header.stamp.toSec();
             double dis_time = distance_msg->header.stamp.toSec();
 
-            globalEstimator.inputOther(other_time, other_t, other_q);
             globalEstimator.inputDis(dis_time, distance_msg->nodes[drone_id - 1].dis);
+            globalEstimator.inputOther(other_time, other_t, other_q);
             
             other_odom_queue.pop();
             break;

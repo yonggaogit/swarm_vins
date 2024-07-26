@@ -24,19 +24,8 @@ if [ -n "$DRONE_IP" ]; then
     
     # SSH 连接到无人机，获取所有 ROS 节点并逐个关闭
     sshpass -p $PASSWORD ssh -o StrictHostKeyChecking=no $USER@$DRONE_IP << EOF
-    source /opt/ros/noetic/setup.bash
-
-    # 获取所有 ROS 节点
-    NODES=\$(rosnode list)
-    
-    # 逐个关闭所有 ROS 节点
-    for NODE in \$NODES
-    do
-        echo "Killing node \$NODE..."
-        rosnode kill \$NODE
-    done
+    python3 /home/$USER/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp/stop_all_rosnode.py
 EOF
-
     echo "All ROS nodes on drone $DRONE_ID have been stopped."
 else
     echo "Invalid or missing IP for drone ID $DRONE_ID"
