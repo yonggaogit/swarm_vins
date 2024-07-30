@@ -85,7 +85,6 @@ def main_menu(log_dir):
                 # stop_process(net_node_pid)
         elif choice == '0':
             print("退出程序")
-            cleanup_local_remote()
             break
         else:
             print("无效选项，请重新输入")

@@ -86,7 +86,6 @@ def main_menu(log_dir):
             subprocess.run('bash shfiles/land.sh', shell=True)
         elif choice == '0':
             print("退出程序")
-            cleanup()
             break
         else:
             print("无效选项，请重新输入")

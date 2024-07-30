@@ -22,9 +22,11 @@ DRONE_IP=$(get_ip_by_id $DRONE_ID)
 if [ -n "$DRONE_IP" ]; then
     echo "Stopping all ROS nodes on drone $DRONE_ID ($DRONE_IP)..."
     
-    # SSH 连接到无人机，获取所有 ROS 节点并逐个关闭
+    # SSH 连接到无人机，获取所有 ROS 节点并逐个关闭，然后重启飞控
     sshpass -p $PASSWORD ssh -o StrictHostKeyChecking=no $USER@$DRONE_IP << EOF
     python3 /home/$USER/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp/stop_all_rosnode.py
+    sleep 0.5
+    echo "reboot" | /home/coolas/JKW_PROJECT/swarm_vins_ws/src/swarm_vins/network_utils/shfiles/tmp/mavlink_shell.py
 EOF
     echo "All ROS nodes on drone $DRONE_ID have been stopped."
 else
