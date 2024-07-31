@@ -77,7 +77,7 @@ def main_menu(log_dir):
             launch_process('bash 8_start_record.sh', f'{log_dir}/8_start_record.log')
         elif choice == '7':
             # rviz_pid = launch_process('bash 2_start_rviz.sh', f'{log_dir}/2_start_rviz.log')
-            rviz_pid = launch_process('roslaunch network_utils rviz_single_drone.launch', f'{log_dir}/network_utils_rviz_single_drone.log')
+            rviz_pid = launch_process('roslaunch network_utils rviz_single_node_multi_drones.launch', f'{log_dir}/network_utils_rviz_single_node_multi_drones.log')
             # net_node_pid = launch_process('bash 3_start_all_drone_node.sh', f'{log_dir}/3_start_all_drone_node')
         elif choice == '8':
             if rviz_pid:

@@ -25,4 +25,5 @@ rosbag record --tcpnodelay \
 /mavros/imu/data_raw \
 /drone_1/vins_fusion/imu_propagate \
 /drone_2/vins_fusion/imu_propagate \
+/drone_3/vins_fusion/imu_propagate \
 /position_cmd -o /home/coolas/JKW_PROJECT/$ROS_BAG_NAME
